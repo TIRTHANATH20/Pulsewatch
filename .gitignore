@@ -11,3 +11,4 @@ nlp-service/.venv/
 nlp-service/__pycache__/
 nlp-service/**/__pycache__/
 nlp-service/.pytest_cache/
+.neon
