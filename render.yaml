@@ -3,10 +3,12 @@ services:
     name: pulsewatch-nlp
     runtime: python
     rootDir: nlp-service
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.13
       - key: GROQ_API_KEY
         sync: false
       - key: CHAT_LLM_MODEL
         value: llama-3.3-70b-versatile
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
