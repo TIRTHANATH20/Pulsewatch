@@ -1,0 +1,13 @@
+.env
+.env.local
+.env.*.local
+.next/
+*.tsbuildinfo
+PulseWatch_A07_MARKET_INTELLIGENCE.zip
+node_modules/
+
+# NLP service
+nlp-service/.venv/
+nlp-service/__pycache__/
+nlp-service/**/__pycache__/
+nlp-service/.pytest_cache/

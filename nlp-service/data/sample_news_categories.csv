@@ -1,0 +1,41 @@
+text,label
+"The company reported quarterly earnings that beat analyst estimates on strong revenue growth.",EARNINGS
+"Net profit rose 15% year over year as quarterly revenue climbed on strong demand.",EARNINGS
+"The firm posted a wider-than-expected quarterly loss amid weak demand.",EARNINGS
+"Quarterly results were broadly in line with analyst expectations.",EARNINGS
+"The company beat Wall Street estimates for the third straight quarter.",EARNINGS
+"The board announced a special dividend following a strong earnings season.",EARNINGS
+"Company A agreed to acquire Company B for $2 billion in an all-cash deal.",M&A
+"The merger between the two firms is expected to close next quarter.",M&A
+"The company completed its acquisition of a smaller rival, expanding its market share.",M&A
+"Shareholders approved the proposed merger with a rival technology firm.",M&A
+"The takeover bid values the target company at a significant premium.",M&A
+"The company announced a strategic partnership with Microsoft to accelerate AI adoption.",PARTNERSHIP
+"The two firms signed a collaboration agreement to jointly develop cloud services.",PARTNERSHIP
+"A new alliance between the companies aims to expand distribution in Asia.",PARTNERSHIP
+"The tie-up will combine each company's strengths in retail and logistics.",PARTNERSHIP
+"The firm unveiled a new product line targeting enterprise customers.",PRODUCT
+"The company launched its next-generation smartphone at a media event.",PRODUCT
+"A new software product was introduced to compete with rival offerings.",PRODUCT
+"The firm's product launch received positive reviews from early customers.",PRODUCT
+"Regulators fined the bank for compliance failures related to anti-money laundering rules.",REGULATION
+"The company faces a lawsuit alleging false advertising practices.",REGULATION
+"Antitrust regulators opened an investigation into the company's pricing practices.",REGULATION
+"The firm was ordered to pay a settlement after a regulatory review.",REGULATION
+"Compliance scrutiny increased after the regulator flagged reporting irregularities.",REGULATION
+"The CEO announced plans to step down at the end of the fiscal year.",MANAGEMENT
+"The company appointed a new chief financial officer effective immediately.",MANAGEMENT
+"A leadership change was announced in the firm's regional business unit.",MANAGEMENT
+"The board named a new chairperson following a governance review.",MANAGEMENT
+"The company is expanding its generative AI capabilities across enterprise products.",AI_TECHNOLOGY
+"Investment in artificial intelligence infrastructure continues to accelerate across the industry.",AI_TECHNOLOGY
+"The firm's cloud computing division reported its fastest growth in years.",AI_TECHNOLOGY
+"New machine learning models were deployed to improve fraud detection.",AI_TECHNOLOGY
+"The central bank raised interest rates to combat persistent inflation.",MACROECONOMICS
+"GDP growth slowed in the latest quarter amid weaker consumer spending.",MACROECONOMICS
+"The Federal Reserve signaled it may pause further rate hikes this year.",MACROECONOMICS
+"Rising inflation continues to weigh on consumer purchasing power.",MACROECONOMICS
+"The company will hold its annual shareholder meeting next month.",OTHER
+"Trading volume was steady throughout the session with no major news.",OTHER
+"The firm confirmed its usual reporting schedule for the coming quarter.",OTHER
+"Shares traded flat as investors awaited further developments.",OTHER

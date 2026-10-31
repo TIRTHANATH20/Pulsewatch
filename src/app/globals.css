@@ -1,0 +1,3484 @@
+/* Minimal, hand-written styling — no CSS/component framework (see
+   DECISIONS.md). Design direction (Iteration 6 — "Final UI redesign"):
+   a premium dark fintech command-center aesthetic — near-black surfaces,
+   a single Groww-inspired green accent, restrained glass panels,
+   editorial serif headings for major moments, and calm motion — applied
+   to PulseWatch's "since your last visit" layout. Same "no CSS
+   framework" constraint as prior iterations: this is a from-scratch dark
+   re-theme of the existing hand-written stylesheet, not a Tailwind
+   migration (see DECISIONS.md for why Framer Motion / Lucide / Tailwind
+   were deliberately not added just to match a visual brief). */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap");
+
+:root {
+  /* Surfaces — Groww-inspired DARK fintech palette (I09 revision).
+     Near-black command-center background with a single green accent.
+     Same custom-property names as every prior theme (Decision #20), so
+     every existing component class restyles automatically; no
+     Tailwind, no framework added (Decision #24 still honored). */
+  --color-bg: #050505;
+  --color-surface: #0d0d0d;
+  --color-surface-hover: #151515;
+  --color-surface-sunken: #080808;
+  --color-surface-elevated: #111111;
+  --color-border: rgba(255, 255, 255, 0.09);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+
+  /* Text */
+  --color-text: #f3f5f4;
+  --color-text-muted: rgba(255, 255, 255, 0.62);
+  --color-text-faint: rgba(255, 255, 255, 0.42);
+
+  /* Brand / accent — Groww-inspired green, not a copy of Groww's exact
+     palette or layout. */
+  --color-accent: #00d09c;
+  --color-accent-strong: #00e6ac;
+  --color-accent-soft: rgba(0, 208, 156, 0.12);
+  --color-accent-border: rgba(0, 208, 156, 0.3);
+
+  /* Secondary accent — purple, used sparingly for gradients, chart
+     fills and depth/visualization moments.
+     Never used for positive/negative movement — green/red still own
+     that meaning exclusively (see Status below). */
+  --color-purple: #8b5cf6;
+  --color-purple-strong: #a78bfa;
+  --color-purple-soft: rgba(139, 92, 246, 0.14);
+  --color-purple-border: rgba(139, 92, 246, 0.32);
+
+  /* Status */
+  --color-positive: #00c853;
+  --color-positive-strong: #00d09c;
+  --color-positive-soft: rgba(0, 200, 83, 0.12);
+  --color-negative: #ff5c5c;
+  --color-negative-soft: rgba(255, 92, 92, 0.12);
+  --color-warning: #e0a02b;
+  --color-warning-soft: rgba(224, 160, 43, 0.14);
+  --color-neutral-soft: rgba(255, 255, 255, 0.04);
+
+  --radius: 18px;
+  --radius-lg: 24px;
+  --radius-sm: 10px;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-raised: 0 20px 44px rgba(0, 0, 0, 0.45);
+
+  --content-max-width: 1120px;
+
+  /* Motion */
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-duration: 0.45s;
+}
+
+/* --- Light theme (I10 — toggle) -----------------------------------------
+   Same custom-property names as :root (dark, the default), so every
+   existing component class restyles automatically — no component-level
+   changes needed. Toggled via [data-theme="light"] on <html>
+   (see ThemeToggle.tsx / layout.tsx's no-flash inline script). Status
+   colors (positive/negative/warning) stay identical across themes so
+   red/green meaning never shifts when someone switches. */
+[data-theme="light"] {
+  --color-bg: #f6f7f8;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f0f1f3;
+  --color-surface-sunken: #eef0f2;
+  --color-surface-elevated: #ffffff;
+  --color-border: rgba(15, 18, 20, 0.1);
+  --color-border-strong: rgba(15, 18, 20, 0.18);
+
+  --color-text: #10131a;
+  --color-text-muted: rgba(16, 19, 26, 0.62);
+  --color-text-faint: rgba(16, 19, 26, 0.44);
+
+  --color-accent-soft: rgba(0, 200, 83, 0.1);
+  --color-purple-soft: rgba(139, 92, 246, 0.1);
+  --color-positive-soft: rgba(0, 200, 83, 0.1);
+  --color-negative-soft: rgba(255, 76, 76, 0.1);
+  --color-warning-soft: rgba(178, 122, 12, 0.12);
+  --color-neutral-soft: rgba(15, 18, 20, 0.04);
+
+  --shadow-card: 0 1px 2px rgba(15, 18, 20, 0.08);
+  --shadow-raised: 0 20px 44px rgba(15, 18, 20, 0.12);
+}
+
+[data-theme="light"] body {
+  background-image:
+    radial-gradient(circle at 18% -6%, rgba(0, 200, 83, 0.08), transparent 42%),
+    radial-gradient(
+      circle at 88% 8%,
+      rgba(139, 92, 246, 0.06),
+      transparent 38%
+    ),
+    radial-gradient(circle at 50% 100%, rgba(0, 200, 83, 0.04), transparent 40%);
+}
+
+[data-theme="light"] .liquid-glass {
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    var(--shadow-card);
+}
+
+[data-theme="light"] .hero-grid-fade {
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    transparent 0%,
+    var(--color-bg) 78%
+  );
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--color-bg);
+  background-image:
+    radial-gradient(
+      circle at 18% -6%,
+      rgba(0, 208, 156, 0.14),
+      transparent 42%
+    ),
+    radial-gradient(circle at 88% 8%, rgba(0, 208, 156, 0.07), transparent 38%),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(0, 208, 156, 0.05),
+      transparent 40%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.012) 0px,
+      rgba(255, 255, 255, 0.012) 1px,
+      transparent 1px,
+      transparent 64px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.012) 0px,
+      rgba(255, 255, 255, 0.012) 1px,
+      transparent 1px,
+      transparent 64px
+    );
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  color: var(--color-text);
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Visible focus ring for keyboard users on every interactive element,
+   without adding a ring to mouse/touch clicks. */
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+.watchlist-row-main:focus-visible,
+.attention-watchlist-tag:focus-visible,
+.attention-quiet-toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+/* --- Liquid glass ------------------------------------------------------ */
+
+.liquid-glass {
+  background: rgba(16, 24, 20, 0.72);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--color-border);
+  box-shadow:
+    inset 0 1px 0 rgba(16, 24, 20, 0.6),
+    var(--shadow-card);
+}
+
+/* --- App header --------------------------------------------------------- */
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 1.1rem 1.25rem 0;
+}
+
+.app-header-inner {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 0.7rem 1.1rem 0.7rem 1.25rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.snapshot-help {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+
+.app-brand-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--color-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-brand-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.app-brand-name {
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.app-nav {
+  display: none;
+  align-items: center;
+  gap: 1.75rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.app-nav-link {
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.3s ease;
+}
+
+.app-nav-link:hover {
+  color: var(--color-text);
+}
+
+.app-nav-link.is-active {
+  color: var(--color-accent);
+}
+
+.app-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+.freshness-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-text-faint);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.freshness-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.freshness-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-faint);
+  flex-shrink: 0;
+}
+
+.freshness-dot.is-live {
+  background: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background 0.2s ease;
+}
+
+.icon-btn:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.icon-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.theme-toggle svg {
+  transition: transform 0.4s var(--ease-premium);
+}
+
+.theme-toggle:hover svg {
+  transform: rotate(24deg);
+}
+
+.icon-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.refresh-icon {
+  display: inline-flex;
+  transition: transform 0.2s ease;
+}
+
+.refresh-icon.is-spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+/* --- Page shell ------------------------------------------------------- */
+
+.page {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 5rem;
+}
+
+.chat-page {
+  height: calc(100dvh - 6.5rem);
+  min-height: 0;
+  padding-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.page-intro {
+  margin-bottom: 1.5rem;
+}
+
+.overview-add {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+
+.overview-add .section-heading,
+.overview-add .section-sub {
+  margin: 0;
+}
+
+.overview-add .section-heading {
+  color: var(--color-text);
+}
+
+.overview-add .section-sub {
+  color: var(--color-text-muted);
+}
+
+.company-search-form {
+  align-items: center;
+}
+
+.company-search-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.company-search-input-wrap .input {
+  width: 100%;
+  padding-right: 2.5rem;
+}
+
+.company-search-input-wrap .input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+.search-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.65rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.search-clear:hover {
+  color: var(--color-text);
+  background: var(--color-border);
+}
+
+.company-search-results {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.company-search-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--color-text);
+  text-align: left;
+}
+
+.company-search-result span:first-child {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.company-search-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.company-buy-insight {
+  grid-column: 1 / -1;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.company-buy-insight.is-consider {
+  color: var(--color-positive);
+}
+
+.company-buy-insight.is-avoid {
+  color: var(--color-negative);
+}
+
+.company-buy-insight.is-wait {
+  color: var(--color-warning);
+}
+
+.company-search-result small,
+.overview-holding-top small {
+  color: var(--color-text);
+  opacity: 0.72;
+  font-size: 0.75rem;
+}
+
+.overview-holdings {
+  margin: 1.5rem 0;
+}
+
+.overview-holding-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.overview-holding-card {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-holding-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.overview-holding-top div {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.overview-holding-price {
+  margin: 1rem 0 0.75rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.overview-holding-top strong {
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.overview-insight {
+  display: grid;
+  gap: 0.2rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.78rem;
+  min-height: 8.5rem;
+}
+
+.overview-insight span {
+  color: var(--color-text);
+  opacity: 0.8;
+  line-height: 1.45;
+}
+
+.overview-insight.is-hold > strong,
+.overview-insight.is-consider > strong {
+  color: var(--color-positive);
+}
+
+.overview-insight.is-sell > strong,
+.overview-insight.is-avoid > strong {
+  color: var(--color-negative);
+}
+
+.overview-insight.is-wait > strong {
+  color: var(--color-warning);
+}
+
+.overview-holding-top .is-up {
+  color: var(--color-positive);
+}
+
+.overview-holding-top .is-down {
+  color: var(--color-negative);
+}
+
+.overview-remove {
+  margin-top: 0.8rem;
+  align-self: flex-start;
+}
+
+.overview-details {
+  align-self: flex-start;
+  margin-top: 0.45rem;
+  text-decoration: none;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.back-link:hover {
+  color: var(--color-text);
+}
+
+.holding-detail-header {
+  margin-bottom: 1.5rem;
+}
+
+.holding-detail-title-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.holding-detail-title-row .page-heading {
+  margin-bottom: 0.25rem;
+}
+
+.holding-detail-price {
+  display: grid;
+  gap: 0.25rem;
+  text-align: right;
+}
+
+.holding-detail-price strong {
+  color: var(--color-text);
+  font-size: 1.7rem;
+}
+
+.holding-detail-insight {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.holding-detail-insight .section-heading {
+  margin: 0;
+}
+
+.holding-detail-insight p {
+  max-width: 70ch;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.holding-detail-insight small {
+  color: var(--color-text-faint);
+}
+
+.holding-rag-context {
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.65rem;
+  color: var(--color-text-muted);
+}
+
+.holding-rag-context summary {
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: 0.82rem;
+}
+
+.holding-rag-context ul {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.65rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+}
+
+.insight-consider,
+.insight-hold {
+  color: var(--color-positive);
+}
+
+.insight-avoid,
+.insight-review,
+.insight-sell {
+  color: var(--color-negative);
+}
+
+.insight-wait,
+.insight-pending {
+  color: var(--color-warning);
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+  margin: 0 0 0.75rem;
+}
+
+.page-heading {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 2.4rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+  margin: 0 0 0.6rem;
+}
+
+.page-sub {
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.45);
+  max-width: 34rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Market-data source label, including the explicit synthetic-data warning. */
+.market-data-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 163, 61, 0.3);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.market-data-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-warning);
+  flex-shrink: 0;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  font-size: 1.5rem;
+}
+
+.watchlist-title {
+  min-width: 0;
+}
+
+.watchlist-title h1 {
+  overflow-wrap: break-word;
+}
+
+.subtitle {
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+  margin: 0.3rem 0 0;
+}
+
+.back-link {
+  color: var(--color-text-faint);
+  font-size: 0.85rem;
+  display: inline-block;
+  transition: color 0.2s ease;
+}
+.back-link:hover {
+  color: var(--color-text);
+}
+
+/* --- Metrics strip ------------------------------------------------------ */
+
+/* Deliberately the most compact, least decorated surface on the page —
+   after the "Since your last visit" hero, these are secondary context,
+   not a second focal point. Smaller type, no glass, thinner padding. */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.65rem;
+  margin: 1.75rem 0 2rem;
+}
+
+.metric-card {
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  padding: 0.8rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.metric-value {
+  font-size: 1.15rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.metric-label {
+  color: var(--color-text-faint);
+  font-size: 0.72rem;
+}
+
+/* The dashboard's "Meaningful changes" metric is a count (SIGNIFICANT +
+   CHANGED combined), not a single movement — it has no direction of its
+   own, so it's never tinted red. A non-zero count gets the accent green
+   (there's something worth looking at); zero stays neutral white. */
+.metric-card-attention .metric-value {
+  color: var(--color-accent);
+}
+
+.metric-card-attention.is-zero .metric-value {
+  color: var(--color-text);
+}
+
+/* --- Cards / lists ------------------------------------------------------ */
+
+.card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius);
+  padding: 0.25rem 1.1rem;
+}
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.watchlist-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius);
+  padding: 1.05rem 1.2rem;
+  transition:
+    border-color 0.3s ease,
+    transform 0.3s ease,
+    background 0.3s ease;
+}
+
+.watchlist-row:hover {
+  border-color: var(--color-border-strong);
+  background: rgba(255, 255, 255, 0.035);
+  transform: translateY(-2px);
+}
+
+.watchlist-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.watchlist-row-text {
+  min-width: 0;
+}
+
+.watchlist-row-name {
+  font-weight: 500;
+  font-size: 0.98rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watchlist-row-meta {
+  color: var(--color-text-faint);
+  font-size: 0.82rem;
+  margin-top: 0.2rem;
+}
+
+.watchlist-row-insight {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.7rem;
+  margin-top: 0.55rem;
+  color: var(--color-text-faint);
+  font-size: 0.72rem;
+}
+
+.watchlist-row-insight .is-up {
+  color: var(--color-positive);
+}
+
+.watchlist-row-insight .is-down {
+  color: var(--color-negative);
+}
+
+.watchlist-row-arrow {
+  color: var(--color-text-faint);
+  flex-shrink: 0;
+  display: inline-flex;
+  transition: transform 0.3s ease;
+}
+
+.watchlist-row:hover .watchlist-row-arrow {
+  transform: translateX(3px);
+  color: var(--color-text);
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+/* --- Buttons ------------------------------------------------------------ */
+
+.btn {
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--color-border-strong);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #04120a;
+  font-weight: 600;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-strong);
+  border-color: var(--color-accent-strong);
+}
+
+.btn-danger {
+  color: var(--color-negative);
+  border-color: var(--color-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-negative-soft);
+  border-color: var(--color-negative);
+}
+
+.btn-danger-solid {
+  background: var(--color-negative);
+  border-color: var(--color-negative);
+  color: #1a0505;
+  font-weight: 600;
+}
+.btn-danger-solid:hover:not(:disabled) {
+  background: #ff6b6b;
+  border-color: #ff6b6b;
+}
+
+.btn-icon {
+  padding: 0.45rem 0.75rem;
+}
+
+.btn-ghost {
+  background: transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* --- Forms / inputs ------------------------------------------------------ */
+
+.form-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.9rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.input::placeholder {
+  color: var(--color-text-faint);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.nlp-demo-input {
+  display: block;
+  width: 100%;
+  min-height: 7rem;
+  margin-bottom: 0.75rem;
+  resize: vertical;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  padding: 0.75rem 0.9rem;
+  font: inherit;
+  line-height: 1.5;
+}
+.nlp-demo-input::placeholder {
+  color: var(--color-text-faint);
+}
+.nlp-demo-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.inline-edit-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+/* --- States: empty / loading / error / first-run ------------------------ */
+
+.empty-state {
+  text-align: center;
+  color: var(--color-text-faint);
+  padding: 2.25rem 1rem;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.empty-state-icon {
+  color: var(--color-accent);
+  font-size: 1.1rem;
+  margin-bottom: 0.4rem;
+  display: block;
+}
+
+.empty-state-beacon {
+  width: 8px;
+  height: 8px;
+  display: block;
+  margin: 0 auto 0.8rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow:
+    0 0 0 6px var(--color-accent-soft),
+    0 0 22px rgba(0, 200, 83, 0.35);
+}
+
+.demo-setup-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: -0.4rem 0 1.8rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius);
+  background: linear-gradient(
+    110deg,
+    rgba(0, 200, 83, 0.08),
+    rgba(255, 255, 255, 0.02)
+  );
+}
+
+.demo-setup-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.demo-setup-kicker {
+  color: var(--color-accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.demo-setup-copy {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.empty-state-title {
+  display: block;
+  color: var(--color-text);
+  font-weight: 500;
+  font-size: 0.98rem;
+  margin-bottom: 0.3rem;
+}
+
+.first-run-state {
+  text-align: center;
+  padding: 3.5rem 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.first-run-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1.1rem;
+  border-radius: 50%;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.first-run-title {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+  font-size: 1.75rem;
+  margin-bottom: 0.6rem;
+  color: var(--color-text);
+}
+
+.first-run-copy {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  max-width: 30rem;
+  margin: 0 auto;
+}
+
+.loading-state {
+  color: var(--color-text-faint);
+  font-size: 0.9rem;
+  padding: 1.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-banner {
+  background: var(--color-negative-soft);
+  border: 1px solid rgba(255, 82, 82, 0.3);
+  color: #ffb3b3;
+  border-radius: var(--radius);
+  padding: 0.8rem 1rem;
+  font-size: 0.87rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* --- Watchlist item rows -------------------------------------------------- */
+
+.item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+  transition: background 0.2s ease;
+}
+
+.item-row:last-child {
+  border-bottom: none;
+}
+
+.item-row:hover {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.item-row-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.item-symbol-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.item-symbol {
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+.item-company {
+  color: var(--color-text-faint);
+  font-size: 0.78rem;
+}
+
+.item-meta {
+  color: var(--color-text-faint);
+  font-size: 0.8rem;
+  margin-top: 0.2rem;
+}
+
+.item-row-price {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.item-price {
+  font-weight: 500;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  min-width: 5.75rem;
+  text-align: right;
+}
+
+/* Fixed columns so spark / price / change / action align on every row. */
+.item-spark-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 64px;
+  min-height: 22px;
+}
+
+.item-spark-slot .sparkline {
+  margin-top: 0;
+}
+
+.item-spark-empty {
+  color: var(--color-text-faint);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  opacity: 0.7;
+}
+
+.item-price-empty {
+  color: var(--color-text-faint);
+  font-weight: 400;
+  font-size: 0.8rem;
+}
+
+.item-delta {
+  min-width: 4.5rem;
+  text-align: right;
+}
+
+.section-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--color-text-faint);
+  margin: 2.25rem 0 0.75rem;
+}
+
+.section-heading-block {
+  margin: 2.75rem 0 1.1rem;
+}
+
+.section-heading {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+  font-size: 1.9rem;
+  color: var(--color-text);
+  margin: 0 0 0.35rem;
+  letter-spacing: -0.01em;
+}
+
+.section-sub {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.holdings-price-note {
+  margin-top: 0.25rem;
+  color: var(--color-text-faint);
+  font-size: 0.76rem;
+}
+
+/* --- Confirm dialog ------------------------------------------------------- */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 100;
+}
+
+.dialog {
+  background: #101010;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 400px;
+  animation: dialog-in 0.25s var(--ease-premium);
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dialog-title {
+  font-weight: 500;
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+  overflow-wrap: break-word;
+}
+
+.dialog-description {
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* --- Attention ("Since your last visit") --------------------------------- */
+
+.attention-section {
+  margin-bottom: 2rem;
+}
+
+.attention-hero {
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.25rem 1.4rem;
+  margin-bottom: 0;
+}
+
+.attention-hero-header {
+  margin-bottom: 1.1rem;
+}
+
+.attention-eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+  margin: 0 0 0.4rem;
+}
+
+.attention-count {
+  font-size: 1.35rem;
+  font-weight: 500;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.attention-count .attention-count-number {
+  color: var(--color-accent);
+}
+
+.attention-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.attention-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius);
+  padding: 1.15rem 1.4rem;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr 1.3fr;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  transition:
+    border-color 0.3s ease,
+    background 0.3s ease;
+}
+
+/* Entrance/stagger and hover-lift are handled by framer-motion
+   (AttentionSection.tsx's cardVariants + whileHover) rather than CSS
+   @keyframes — see DECISIONS.md's I07 entry on why Motion was adopted
+   for JS-driven stagger while CSS keyframes remain for effects that
+   don't need per-item orchestration (skeletons, the dialog, the
+   refresh spinner). */
+.attention-card:hover {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: var(--color-border-strong);
+}
+
+/* SIGNIFICANT is the strongest visual treatment, but the colour always
+   reflects movement DIRECTION, not the status itself — a significant
+   drop must read as a warning (red), a significant gain as a positive
+   (green), and the rare zero-movement edge case as neutral. Only two
+   directional modifiers (.is-positive / .is-negative) carry colour;
+   the bare .is-significant class alone is intentionally neutral. */
+.attention-card.is-significant {
+  border-color: var(--color-border-strong);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.attention-card.is-significant.is-positive {
+  border-color: rgba(0, 200, 83, 0.22);
+  background: linear-gradient(
+    180deg,
+    rgba(0, 200, 83, 0.06),
+    rgba(255, 255, 255, 0.02)
+  );
+}
+
+.attention-card.is-significant.is-negative {
+  border-color: rgba(255, 82, 82, 0.24);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 82, 82, 0.06),
+    rgba(255, 255, 255, 0.02)
+  );
+}
+
+/* CHANGED is meaningful but must stay visibly a step below SIGNIFICANT
+   — a restrained neutral border rather than a colour treatment, so the
+   two statuses don't compete for attention. Direction is still
+   communicated through the price delta and badge colour, just not the
+   card border/background. */
+.attention-card.is-changed {
+  border-color: var(--color-border-strong);
+}
+
+/* NEW gets the lightest possible accent — a first observation, not a
+   move worth alarming over. */
+.attention-card.is-new {
+  border-color: rgba(0, 200, 83, 0.12);
+}
+
+.attention-card-left {
+  min-width: 0;
+}
+
+.attention-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.3rem;
+}
+
+.attention-symbol-group {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.attention-symbol {
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+}
+
+.attention-company {
+  color: var(--color-text-faint);
+  font-size: 0.78rem;
+  display: block;
+}
+
+.attention-watchlist-tag {
+  color: var(--color-text-faint);
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.attention-watchlist-tag:hover {
+  color: var(--color-text);
+}
+
+.attention-card-center {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.attention-price-current {
+  font-weight: 500;
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.attention-delta {
+  font-weight: 500;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-faint);
+}
+
+.attention-delta.is-up {
+  color: var(--color-positive);
+}
+
+.attention-delta.is-down {
+  color: var(--color-negative);
+}
+
+.attention-card-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.attention-compare {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.3rem 0.35rem;
+  max-width: 100%;
+}
+
+.attention-compare-prev {
+  color: var(--color-text-faint);
+}
+
+.attention-compare-arrow {
+  color: var(--color-text-faint);
+}
+
+.attention-compare-current {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.attention-reason {
+  color: var(--color-text-faint);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.attention-footer {
+  color: var(--color-text-faint);
+  font-size: 0.72rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Neutral by default — SIGNIFICANT on its own says nothing about
+   direction. .badge-significant-positive / -negative are applied
+   directly (by the component, from the same absoluteChange sign used
+   for the delta arrow) everywhere a SIGNIFICANT badge is rendered —
+   attention cards, watchlist item rows, and the quiet list alike — so
+   the colour semantics never depend on which surface is rendering it. */
+.badge-significant {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-strong);
+}
+
+.badge-significant-positive {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent-border);
+}
+
+.badge-significant-negative {
+  background: var(--color-negative-soft);
+  color: var(--color-negative);
+  border: 1px solid rgba(255, 82, 82, 0.3);
+}
+
+.badge-changed {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent-border);
+}
+
+.badge-new {
+  background: var(--color-positive-soft);
+  color: var(--color-positive);
+  border: 1px solid rgba(0, 200, 83, 0.3);
+}
+
+.badge-unchanged {
+  background: var(--color-neutral-soft);
+  color: var(--color-text-faint);
+  border: 1px solid var(--color-border);
+}
+
+.badge-stale {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  border: 1px solid rgba(232, 163, 61, 0.3);
+}
+
+.badge-unavailable {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-text-faint);
+  border: 1px dashed var(--color-border-strong);
+}
+
+.attention-quiet {
+  margin-top: 0.9rem;
+}
+
+.attention-quiet-toggle {
+  background: none;
+  border: none;
+  color: var(--color-text-faint);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.3rem 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(255, 255, 255, 0.2);
+  transition: color 0.2s ease;
+}
+
+.attention-quiet-toggle:hover {
+  color: var(--color-text);
+}
+
+.attention-quiet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+}
+
+.attention-quiet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  color: var(--color-text-faint);
+  background: rgba(255, 255, 255, 0.015);
+  flex-wrap: wrap;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.attention-quiet-row:hover {
+  border-color: var(--color-border-strong);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.attention-quiet-row strong {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.attention-quiet-note {
+  color: var(--color-text-faint);
+}
+
+/* --- Sparklines ----------------------------------------------------------- */
+
+.sparkline {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.sparkline-up polyline {
+  stroke: var(--color-positive);
+}
+
+.sparkline-down polyline {
+  stroke: var(--color-negative);
+}
+
+.sparkline-flat polyline {
+  stroke: var(--color-text-faint);
+}
+
+/* --- Market Pulse ----------------------------------------------------------- */
+
+.market-pulse-panel {
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.4rem;
+  margin: 1.25rem 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.market-pulse-header {
+  min-width: 0;
+  max-width: 22rem;
+}
+
+.market-pulse-copy {
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.market-pulse-stage {
+  width: 180px;
+  height: 180px;
+  flex-shrink: 0;
+  perspective: 800px;
+}
+
+.market-pulse-tilt {
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.pulse-line {
+  stroke: var(--color-text-faint);
+  stroke-width: 1;
+}
+
+.pulse-core {
+  fill: var(--color-purple);
+}
+
+.pulse-core-ring {
+  fill: none;
+  stroke: var(--color-purple);
+  stroke-width: 1.5;
+  opacity: 0.5;
+  transform-origin: center;
+  animation: pulse-ring 2.4s ease-out infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.pulse-node {
+  transition:
+    r 0.3s ease,
+    opacity 0.3s ease;
+}
+
+.pulse-node-up {
+  fill: var(--color-positive);
+}
+
+.pulse-node-down {
+  fill: var(--color-negative);
+}
+
+.pulse-node-flat {
+  fill: var(--color-text-muted);
+}
+
+.pulse-node-stale {
+  fill: var(--color-warning);
+}
+
+.pulse-node-unavailable {
+  fill: var(--color-text-faint);
+}
+
+.pulse-node-halo {
+  opacity: 0.45;
+  transform-origin: center;
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+
+/* --- Market Snapshot -------------------------------------------------------- */
+
+.snapshot {
+  margin: 1.75rem 0 2rem;
+}
+
+.snapshot-heading-block {
+  margin-top: 0;
+}
+
+.metric-card-positive .metric-value {
+  color: var(--color-positive);
+}
+
+.metric-card-positive.is-zero .metric-value {
+  color: var(--color-text);
+}
+
+.metric-card-negative .metric-value {
+  color: var(--color-negative);
+}
+
+.metric-card-negative.is-zero .metric-value {
+  color: var(--color-text);
+}
+
+.snapshot-highlights {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.snapshot-highlight {
+  flex: 1;
+  min-width: 10rem;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.snapshot-highlight-label {
+  color: var(--color-text-faint);
+  font-size: 0.72rem;
+}
+
+.snapshot-highlight-value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  font-size: 0.92rem;
+  color: var(--color-text);
+}
+
+.snapshot-highlight-delta {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+}
+
+.snapshot-highlight-delta.is-up {
+  color: var(--color-positive);
+}
+
+.snapshot-highlight-delta.is-down {
+  color: var(--color-negative);
+}
+
+.snapshot-highlight-sub {
+  color: var(--color-text-faint);
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.06) 37%,
+    rgba(255, 255, 255, 0.03) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-loading 1.4s ease infinite;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.skeleton-card {
+  height: 96px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* Respect reduced-motion preferences: keep entrance/skeleton/spinner
+   animations from running for users who've asked for calmer UI.
+   framer-motion-driven entrance/hover (attention cards, page fade-up,
+   Market Pulse tilt) is separately gated via each component's own
+   `useReducedMotion()` check — this block covers the plain-CSS
+   animations that Motion doesn't touch. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .spinner,
+  .refresh-icon.is-spinning,
+  .dialog,
+  .pulse-core-ring,
+  .pulse-node-halo {
+    animation: none;
+  }
+  .watchlist-row,
+  .watchlist-row-arrow,
+  .attention-card,
+  .icon-btn,
+  .btn {
+    transition: none;
+  }
+}
+
+/* --- Responsive ----------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  .attention-card {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    padding: 1rem 1.1rem;
+  }
+
+  .attention-card-right {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .attention-compare {
+    justify-content: flex-start;
+  }
+
+  .market-pulse-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .market-pulse-header {
+    max-width: none;
+  }
+
+  .market-pulse-stage {
+    width: 100%;
+    max-width: 220px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .page-heading {
+    font-size: 1.9rem;
+  }
+}
+
+/* .app-nav is display:none by default (mobile-first); this is the only
+   rule that turns it back on above the mobile breakpoint. */
+@media (min-width: 640px) {
+  .app-nav {
+    display: flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 2rem 1rem 3.5rem;
+  }
+
+  .app-header {
+    padding: 0.9rem 0.85rem 0;
+  }
+
+  .app-header-inner {
+    padding: 0.6rem 0.6rem 0.6rem 1rem;
+  }
+
+  /* Keep the live-freshness dot (still meaningful at a glance) but drop
+     the "Updated N min ago" text — on a narrow phone width, brand name
+     + full freshness sentence + refresh button don't all fit without
+     forcing horizontal scroll. */
+  .freshness-label {
+    display: none;
+  }
+
+  .item-row-price {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 0.5rem;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .page-header .row-actions {
+    justify-content: flex-end;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .item-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .item-row-price {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .watchlist-row {
+    flex-wrap: wrap;
+  }
+
+  .dialog {
+    padding: 1.25rem;
+  }
+
+  .dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .dialog-actions .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .snapshot-highlight {
+    min-width: 100%;
+  }
+}
+
+/* --- Portfolio summary / chart / holdings (I08) -------------------------
+   New demo-portfolio UI. Reuses existing tokens (--color-*, --radius-*,
+   .liquid-glass, .section-heading, .input, .attention-eyebrow) rather
+   than introducing new ones, per DECISIONS.md #24's "no framework, no
+   duplicate design tokens" convention. */
+
+.portfolio-summary {
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1.5rem 1.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.portfolio-summary-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.portfolio-greeting {
+  margin: 0 0 0.15rem;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.portfolio-heading {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.demo-data-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  border: 1px solid rgba(185, 116, 11, 0.22);
+}
+
+.demo-data-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-warning);
+}
+
+.portfolio-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.75rem;
+}
+
+.portfolio-stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  transition: box-shadow 0.2s var(--ease-premium);
+}
+
+.portfolio-stat-card:hover {
+  box-shadow: var(--shadow-card);
+}
+
+.portfolio-stat-card-muted {
+  background: var(--color-surface-sunken);
+}
+
+.portfolio-stat-label {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+.portfolio-stat-value {
+  font-size: 1.2rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.portfolio-stat-value.is-up {
+  color: var(--color-positive);
+}
+
+.portfolio-stat-value.is-down {
+  color: var(--color-negative);
+}
+
+.portfolio-stat-sub {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.portfolio-stat-sub.is-up {
+  color: var(--color-positive);
+}
+
+.portfolio-stat-sub.is-down {
+  color: var(--color-negative);
+}
+
+/* --- Portfolio chart ------------------------------------------------- */
+
+.portfolio-chart-panel {
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.portfolio-chart-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.portfolio-chart-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: 0.2rem;
+}
+
+.portfolio-chart-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.portfolio-chart-change {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.portfolio-chart-change.is-up {
+  color: var(--color-positive);
+}
+
+.portfolio-chart-change.is-down {
+  color: var(--color-negative);
+}
+
+.range-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  background: var(--color-surface-sunken);
+  border-radius: 999px;
+  padding: 0.2rem;
+}
+
+.range-tab {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease-premium),
+    color 0.15s var(--ease-premium);
+}
+
+.range-tab:hover {
+  color: var(--color-text);
+}
+
+.range-tab.is-active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-card);
+}
+
+.portfolio-chart-stage {
+  width: 100%;
+}
+
+.portfolio-chart-stage svg {
+  display: block;
+  cursor: crosshair;
+}
+
+.portfolio-chart-hover-line {
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.portfolio-chart-hover-dot {
+  stroke: var(--color-surface);
+  stroke-width: 2;
+}
+
+.portfolio-chart-hover-dot.is-up {
+  fill: var(--color-positive);
+}
+
+.portfolio-chart-hover-dot.is-down {
+  fill: var(--color-negative);
+}
+
+.portfolio-chart-footer {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-faint);
+  font-size: 0.72rem;
+  margin-top: 0.35rem;
+}
+
+/* --- Holdings table ---------------------------------------------------- */
+
+.holdings-panel {
+  margin-bottom: 2rem;
+}
+
+/* Reuses .portfolio-chart-header/.portfolio-stats-grid/.portfolio-stat-card
+   (already defined above for the portfolio chart) for the gross/net P&L
+   window at the top of Holdings — same "row of stat cards" visual
+   language, no new card styling needed. */
+.holdings-pnl-grid {
+  margin: 0.9rem 0 1.5rem;
+}
+
+.holdings-heading-block {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.holdings-search {
+  max-width: 220px;
+}
+
+.holdings-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.holdings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  min-width: 720px;
+}
+
+.holdings-table thead th {
+  text-align: left;
+  padding: 0.7rem 0.9rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.holdings-table th.num,
+.holdings-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.holdings-row td {
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.holdings-row:last-child td {
+  border-bottom: none;
+}
+
+.holdings-symbol-cell {
+  display: flex;
+  flex-direction: column;
+  white-space: normal;
+}
+
+.holdings-symbol {
+  font-weight: 600;
+}
+
+.holdings-name {
+  font-size: 0.74rem;
+  color: var(--color-text-faint);
+}
+
+.holdings-pct {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+.holdings-empty {
+  text-align: center;
+  padding: 1.5rem;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 860px) {
+  .portfolio-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .portfolio-chart-header {
+    flex-direction: column;
+  }
+  .holdings-heading-block {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .holdings-search {
+    max-width: none;
+    width: 100%;
+  }
+}
+
+/* --- Hero background (I09 — animated dark-fintech backdrop) ------------ */
+/* Fixed behind everything (see HeroBackground.tsx). Pure CSS + Framer
+   Motion transforms, no images, no Three.js. */
+
+.hero-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-background.is-auth {
+  /* A faint, static base wash — the moving glow is carried by the
+     looping `.hero-orb` (see HeroBackground.tsx's AUTH_ORB_LOOP), kept
+     low here so the two don't stack into a bright, static-looking
+     corner. */
+  background:
+    radial-gradient(
+      circle at 78% 12%,
+      rgba(139, 92, 246, 0.1),
+      transparent 46%
+    ),
+    radial-gradient(
+      circle at 18% 82%,
+      rgba(139, 92, 246, 0.07),
+      transparent 42%
+    ),
+    linear-gradient(135deg, rgba(38, 22, 74, 0.08), transparent 58%);
+}
+
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 208, 156, 0.22), transparent 70%);
+  filter: blur(40px);
+}
+
+.hero-wave-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+}
+
+.hero-grid-fade {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    transparent 0%,
+    var(--color-bg) 78%
+  );
+}
+
+/* On auth routes the purple orb now loops the full screen boundary
+   (HeroBackground.tsx's AUTH_ORB_LOOP) — the default vignette above
+   paints solid `--color-bg` starting at 78% radius from top-center,
+   which was quietly erasing the orb/waves whenever they travelled
+   toward the left side or the bottom corners. Pushed the solid stop
+   much further out and softened it to a partial tint (not opaque) so
+   the glow stays visible along its whole path while the card still
+   gets a little extra contrast at the very edges. */
+.hero-background.is-auth .hero-grid-fade {
+  background: radial-gradient(
+    ellipse at 50% 15%,
+    transparent 0%,
+    transparent 68%,
+    rgba(3, 3, 3, 0.5) 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-orb,
+  .hero-wave-svg path,
+  .dashboard-wave-track {
+    animation: none !important;
+  }
+}
+
+/* --- Intro splash (I11 — PulseWatchIntro, runs once per page load) -----
+   Full-screen black cover with a typewriter reveal of the wordmark.
+   `.pw-app-shell` is the app content underneath it (AppHeader + page)
+   — it starts hidden/offset and eases in as the intro fades, so the
+   transition reads as one intentional beat rather than an abrupt cut
+   (see PulseWatchIntro.tsx). */
+
+.pw-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #030303;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity var(--motion-duration) var(--ease-premium);
+}
+
+.pw-intro.is-fading {
+  opacity: 0;
+}
+
+.pw-intro-word {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: clamp(1.5rem, 5vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--color-text);
+}
+
+.pw-intro-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 3px;
+  transform: translateY(1px);
+  background: var(--color-accent);
+  animation: pw-cursor-blink 1s steps(1, jump-none) infinite;
+}
+
+@keyframes pw-cursor-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.pw-app-shell {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.pw-app-shell.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 0.5s var(--ease-premium),
+    transform 0.5s var(--ease-premium);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pw-intro-cursor {
+    animation: none;
+    opacity: 1;
+  }
+  .pw-app-shell,
+  .pw-app-shell.is-revealed {
+    transition: opacity 0.2s linear;
+    transform: none;
+  }
+}
+
+/* --- Card depth / hover polish (I09) ------------------------------------ */
+/* Subtle lift + perspective tilt on the dashboard's primary card
+   surfaces, so the UI reads as layered rather than flat. Kept to a
+   transform + shadow change (cheap, GPU-composited) — no JS required. */
+
+.attention-card,
+.metric-card,
+.portfolio-stat-card,
+.demo-setup-card,
+.market-pulse-panel {
+  transition:
+    transform 0.35s var(--ease-premium),
+    box-shadow 0.35s var(--ease-premium),
+    border-color 0.35s var(--ease-premium);
+  will-change: transform;
+}
+
+.attention-card:hover,
+.metric-card:hover,
+.portfolio-stat-card:hover {
+  transform: translateY(-3px) perspective(800px) rotateX(1.5deg);
+  box-shadow: var(--shadow-raised);
+  border-color: var(--color-border-strong);
+}
+
+.watchlist-row:hover,
+.item-row:hover,
+.holdings-row:hover {
+  background: var(--color-surface-hover);
+  transition: background 0.2s ease;
+}
+
+/* --- Auth pages (I09 — /login, /signup) --------------------------------- */
+
+.auth-shell {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+}
+
+.auth-card {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  padding: 2.25rem 2rem 2rem;
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  box-shadow:
+    inset 0 1px 0 rgba(16, 24, 20, 0.6),
+    0 0 0 1px rgba(0, 200, 83, 0.06),
+    0 30px 80px rgba(0, 0, 0, 0.55),
+    0 0 120px rgba(139, 92, 246, 0.08);
+}
+
+.auth-brand {
+  align-self: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.auth-toggle {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-neutral-soft);
+  border: 1px solid var(--color-border);
+  margin-bottom: 1.25rem;
+}
+
+.auth-toggle-tab {
+  flex: 1;
+  text-align: center;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border-radius: calc(var(--radius-sm) - 4px);
+  transition:
+    background 0.25s var(--ease-premium),
+    color 0.25s var(--ease-premium);
+}
+
+.auth-toggle-tab.is-active {
+  background: linear-gradient(
+    135deg,
+    var(--color-accent-soft),
+    var(--color-purple-soft)
+  );
+  color: var(--color-text);
+  box-shadow: inset 0 0 0 1px var(--color-accent-border);
+}
+
+.auth-toggle-tab:hover:not(.is-active) {
+  color: var(--color-text);
+}
+
+.auth-title {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: 1.9rem;
+  font-weight: 400;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.auth-subtitle {
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+  margin: 0.25rem 0 1.5rem;
+  line-height: 1.5;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.auth-label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.auth-input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.85rem;
+  font-size: 0.92rem;
+  color: var(--color-text);
+  font-family: inherit;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.auth-input:disabled {
+  opacity: 0.6;
+}
+
+.auth-error {
+  color: var(--color-negative);
+  font-size: 0.83rem;
+  margin: 0;
+}
+
+.auth-success {
+  color: var(--color-positive);
+  font-size: 0.83rem;
+  margin: 0;
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.92rem;
+  margin-top: 0.25rem;
+}
+
+.auth-switch {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.auth-switch a {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+.auth-switch a:hover {
+  text-decoration: underline;
+}
+
+/* --- Header auth chip (I09) --------------------------------------------- */
+
+.auth-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.35rem;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--color-border);
+}
+
+.auth-chip-email {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: none;
+}
+
+.auth-chip-btn {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+}
+
+@media (min-width: 640px) {
+  .auth-chip-email {
+    display: inline-block;
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-card {
+    padding: 1.75rem 1.4rem;
+  }
+}
+
+/* Market intelligence surfaces */
+.market-snapshot-hero,
+.market-view {
+  margin: 2rem 0;
+  border-top: 1px solid var(--color-border);
+  padding-top: 1.2rem;
+}
+.section-kicker {
+  color: var(--color-accent);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.snapshot-topline,
+.market-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin: 0.35rem 0 1.2rem;
+}
+.snapshot-topline h2,
+.market-view h2 {
+  font-size: 1.35rem;
+  font-weight: 500;
+}
+.data-provenance {
+  color: var(--color-text-faint);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+.snapshot-metrics {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.snapshot-metric {
+  min-height: 90px;
+  padding: 1rem;
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.snapshot-metric:last-child {
+  border-right: 0;
+}
+.snapshot-metric strong {
+  font-size: 1.7rem;
+  font-weight: 500;
+}
+.snapshot-metric span {
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+}
+.snapshot-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  padding: 0.85rem 0;
+}
+.snapshot-footer b {
+  color: var(--color-text);
+  margin-left: 0.3rem;
+}
+.market-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+.market-controls select,
+.control {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+.market-controls select option {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.market-view .data-provenance {
+  color: var(--color-text-muted);
+}
+.control.active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.control-scroll,
+.range-controls {
+  display: flex;
+  gap: 0.35rem;
+}
+.control-scroll {
+  flex: 1;
+  overflow-x: auto;
+}
+.chart-workspace {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 1rem;
+  min-height: 300px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 1rem;
+}
+.chart-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-right: 1px solid var(--color-border);
+  padding: 0.25rem 1rem 0.25rem 0;
+}
+.chart-stat span {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+.chart-stat strong {
+  font-size: 1.45rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+.chart-stat b {
+  font-size: 0.9rem;
+}
+.chart-stat .market-change.is-up {
+  color: var(--color-positive);
+}
+.chart-stat .market-change.is-down {
+  color: var(--color-negative);
+}
+.chart-stat small,
+.chart-note {
+  color: var(--color-text-faint);
+  font-size: 0.7rem;
+}
+.market-chart {
+  width: 100%;
+  height: 320px;
+  display: block;
+  overflow: visible;
+}
+.chart-shell {
+  min-width: 0;
+  padding: 0.25rem 0 0;
+}
+.chart-grid-line {
+  stroke: var(--color-border);
+  stroke-width: 1;
+  opacity: 0.8;
+}
+.chart-axis-label {
+  fill: var(--color-text-faint);
+  font-size: 11px;
+}
+.chart-line {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+.chart-area-fill {
+  fill: var(--color-accent-soft);
+  opacity: 0.55;
+}
+.chart-point {
+  fill: var(--color-accent);
+  stroke: var(--color-surface);
+  stroke-width: 1.5;
+}
+.chart-up {
+  stroke: var(--color-positive);
+  fill: var(--color-positive);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.chart-down {
+  stroke: var(--color-negative);
+  fill: var(--color-negative);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.chart-empty {
+  color: var(--color-text-muted);
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+}
+.market-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 3px;
+}
+.market-tile {
+  min-height: 125px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid var(--color-bg);
+  transition:
+    filter 0.2s ease,
+    transform 0.2s ease;
+}
+.market-tile:hover {
+  filter: brightness(1.18);
+  transform: translateY(-2px);
+}
+.market-tile.up {
+  background: rgba(0, 200, 83, calc(0.08 + min(abs(var(--move, 0)), 5) * 0.02));
+}
+.market-tile.down {
+  background: rgba(255, 82, 82, 0.12);
+}
+.market-tile strong {
+  font-size: 1.05rem;
+}
+.market-tile span {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.market-tile b {
+  font-size: 1.15rem;
+}
+.market-tile small {
+  color: var(--color-text-faint);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+@media (max-width: 760px) {
+  .snapshot-metrics {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .snapshot-metric:nth-child(3) {
+    border-right: 0;
+  }
+  .snapshot-footer {
+    flex-direction: column;
+  }
+  .chart-workspace {
+    grid-template-columns: 1fr;
+  }
+  .chart-stat {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+    padding: 0 0 0.75rem;
+  }
+  .market-view-header {
+    align-items: start;
+    flex-direction: column;
+  }
+}
+
+/* ============================================================
+   NLP Intelligence (NLP-Powered Market Intelligence)
+   Additive only: reuses existing tokens (--color-border, liquid-glass,
+   btn, badge patterns) rather than introducing a new visual language.
+   ============================================================ */
+
+.item-row-group {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.item-row-group .item-row {
+  border-bottom: none;
+}
+
+.nlp-intel-card {
+  padding: 0.85rem 1rem 1rem;
+  margin: 0 0 0.85rem;
+  border-radius: 12px;
+  font-size: 0.86rem;
+}
+
+.nlp-intel-quiet {
+  opacity: 0.75;
+}
+
+.nlp-intel-eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  margin: 0 0 0.5rem;
+}
+
+.nlp-intel-muted {
+  opacity: 0.65;
+  margin: 0;
+}
+
+.nlp-intel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.25rem 0;
+}
+
+.nlp-intel-label {
+  opacity: 0.65;
+  font-size: 0.78rem;
+}
+
+.nlp-intel-confidence {
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+.nlp-intel-chips {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.nlp-chip {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(120, 140, 255, 0.12);
+  font-size: 0.75rem;
+}
+
+.nlp-sentiment-badge,
+.nlp-attention-badge {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.nlp-sentiment-positive {
+  background: rgba(52, 199, 89, 0.15);
+  color: #34c759;
+}
+.nlp-sentiment-negative {
+  background: rgba(255, 69, 58, 0.15);
+  color: #ff453a;
+}
+.nlp-sentiment-neutral {
+  background: rgba(142, 142, 147, 0.18);
+  color: #b0b0b5;
+}
+
+.nlp-attention-high {
+  background: rgba(255, 69, 58, 0.15);
+  color: #ff453a;
+}
+.nlp-attention-medium {
+  background: rgba(255, 159, 10, 0.15);
+  color: #ff9f0a;
+}
+.nlp-attention-low {
+  background: rgba(142, 142, 147, 0.18);
+  color: #b0b0b5;
+}
+
+.nlp-intel-why {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.nlp-intel-summary {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  opacity: 0.8;
+  line-height: 1.4;
+}
+
+.nlp-intel-link {
+  display: inline-block;
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+
+.nlp-intel-link:hover {
+  opacity: 1;
+}
+
+.page-container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.page-title {
+  font-size: 1.6rem;
+  margin: 0 0 0.35rem;
+}
+
+.page-subtitle {
+  opacity: 0.7;
+  margin: 0 0 1.5rem;
+  font-size: 0.9rem;
+}
+
+/* --- PulseWatch AI chat (unified multi-agent chatbot) ------------------- */
+
+.pwchat {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+.pwchat-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.pwchat-h1 {
+  font-size: 1.6rem;
+  margin: 0 0 0.25rem;
+}
+.pwchat-muted {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+.pwchat-log {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  overflow-y: auto;
+  max-height: none;
+  padding: 0.1rem 0.75rem 4rem 0.1rem;
+  scrollbar-gutter: stable;
+}
+.pwchat-empty {
+  margin: auto;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+.pwchat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.6rem;
+}
+.pwchat-msg {
+  min-width: 0;
+  border-radius: var(--radius);
+  padding: 0.8rem 1rem;
+  max-width: 92%;
+  border: 1px solid var(--color-border);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.pwchat-msg p {
+  margin: 0 0 0.5rem;
+}
+.pwchat-msg.is-user {
+  align-self: flex-end;
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-border);
+}
+.pwchat-msg.is-assistant {
+  align-self: flex-start;
+  background: var(--color-surface-elevated);
+}
+.pwchat-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.pwchat-answer-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.pwchat-answer-heading .pwchat-title {
+  margin-bottom: 0;
+}
+.pwchat-answer {
+  white-space: pre-wrap;
+}
+.pwchat-cite {
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+.pwchat-error {
+  color: var(--color-negative);
+}
+.pwchat-progress {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.88rem;
+}
+.pwchat-progress .is-done {
+  color: var(--color-text-muted);
+}
+.pwchat-progress .is-running {
+  color: var(--color-text);
+}
+.pwchat-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.3rem 0 0.6rem;
+}
+.pwchat-badge,
+.pwchat-status {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.72rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-neutral-soft);
+  color: var(--color-text-muted);
+}
+.pwchat-badge.is-fallback,
+.pwchat-badge.is-v-passed_with_warnings,
+.pwchat-badge.is-m-simulated,
+.pwchat-badge.is-m-delayed,
+.pwchat-badge.is-m-cached,
+.pwchat-status.is-insufficient_evidence,
+.pwchat-status.is-sev-warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+.pwchat-badge.is-v-failed,
+.pwchat-badge.is-m-unavailable,
+.pwchat-status.is-failed,
+.pwchat-status.is-sev-error {
+  background: var(--color-negative-soft);
+  color: var(--color-negative);
+}
+.pwchat-badge.is-v-passed,
+.pwchat-badge.is-m-live,
+.pwchat-status.is-completed {
+  background: var(--color-positive-soft);
+  color: var(--color-positive-strong);
+}
+.pwchat-notes {
+  margin: 0.4rem 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+.pwchat-details {
+  margin-top: 0.6rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.5rem;
+}
+.pwchat-details summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.pwchat-agents,
+.pwchat-sources {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+.pwchat-agent-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.pwchat-form {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.pwchat-form .input {
+  flex: 1;
+}
+.pwchat-disclaimer {
+  margin: 0;
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  .pwchat {
+    padding: 0.9rem;
+  }
+  .pwchat-msg {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-page {
+    padding-bottom: 0.75rem;
+  }
+}

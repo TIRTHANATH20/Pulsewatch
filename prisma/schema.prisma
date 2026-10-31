@@ -1,0 +1,140 @@
+// PulseWatch — Prisma schema
+//
+// Watchlist, price history, attention baselines, password hashes and
+// revocable authentication sessions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Existing users from the former anonymous demo flow may have no password
+// hash until they register a password for that email.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  watchlists     Watchlist[]
+  lastSeenStates LastSeenState[]
+  sessions       AuthSession[]
+
+  @@map("users")
+}
+
+model AuthSession {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("auth_sessions")
+}
+
+// A named collection of instruments a user tracks.
+model Watchlist {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items WatchlistItem[]
+
+  @@index([userId])
+  @@map("watchlists")
+}
+
+// Join entity between a Watchlist and an Instrument. Kept separate from
+// Instrument so the same instrument can appear on many watchlists without
+// duplicting market data, and so per-watchlist metadata (e.g. notes, sort
+// order) has somewhere to live later without touching Instrument.
+model WatchlistItem {
+  id           String   @id @default(cuid())
+  watchlistId  String
+  instrumentId String
+  addedAt      DateTime @default(now())
+
+  watchlist  Watchlist  @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+
+  @@unique([watchlistId, instrumentId])
+  @@index([instrumentId])
+  @@map("watchlist_items")
+}
+
+// A tradable instrument (e.g. a stock). Identified by a ticker symbol.
+// Market data itself lives in PriceObservation so we retain history.
+model Instrument {
+  id        String   @id @default(cuid())
+  symbol    String   @unique
+  name      String
+  exchange  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  watchlistItems    WatchlistItem[]
+  priceObservations PriceObservation[]
+  lastSeenStates    LastSeenState[]
+
+  @@map("instruments")
+}
+
+// A single point-in-time price reading for an instrument. Stored as an
+// append-only log (never updated in place) so that "previous observed
+// price" and "meaningful change since last visit" can be computed by
+// querying history rather than overwriting state. This is the
+// foundation the attention engine (src/server/modules/attention) is
+// built on, via LastSeenState below.
+model PriceObservation {
+  id           String   @id @default(cuid())
+  instrumentId String
+  price        Decimal  @db.Decimal(18, 4)
+  observedAt   DateTime @default(now())
+  source       String
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@index([instrumentId, observedAt])
+  @@map("price_observations")
+}
+
+// The price (and when it was observed) that a given user last saw for a
+// given instrument — the baseline the attention engine diffs the current
+// price against to answer "what changed since I last checked?".
+//
+// Scoped to (userId, instrumentId) rather than per-watchlist-item: the same
+// instrument may appear on several of a user's watchlists, and "have I
+// seen AAPL move" is a fact about the user and the instrument, not about
+// which list it happens to sit on. See DECISIONS.md.
+//
+// Deliberately NOT updated when a read comes back UNAVAILABLE (no price to
+// record) — the prior baseline is left in place so the next successful
+// read still compares against what the user actually last saw, instead of
+// silently resetting to "no history".
+model LastSeenState {
+  id                 String   @id @default(cuid())
+  userId             String
+  instrumentId       String
+  lastSeenPrice      Decimal  @db.Decimal(18, 4)
+  lastSeenObservedAt DateTime
+  updatedAt          DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, instrumentId])
+  @@index([instrumentId])
+  @@map("last_seen_states")
+}

@@ -1,0 +1,11 @@
+# Optional heavy dependencies for transformer-backed NLP (FinBERT sentiment,
+# sentence-transformers embeddings, spaCy statistical NER/BERTopic).
+# Not installed by default: this sandbox cannot reach huggingface.co / spaCy's
+# model host, and torch alone is >2GB. Install locally with:
+#   pip install -r requirements.txt -r requirements-transformers.txt
+#   python -m spacy download en_core_web_sm
+# See NLP_SETUP.md for details and expected download sizes.
+torch>=2.2
+transformers>=4.40
+sentence-transformers>=2.7
+spacy>=3.7
