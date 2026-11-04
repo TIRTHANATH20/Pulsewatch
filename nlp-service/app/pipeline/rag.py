@@ -125,10 +125,7 @@ def _templated_extractive_answer(docs: list[RetrievedDoc]) -> str:
     nothing is generated beyond string concatenation."""
     if not docs:
         return "There is insufficient evidence in the retrieved articles to answer this."
-    parts = [f"Based on {len(docs)} retrieved article(s):"]
-    for i, d in enumerate(docs, start=1):
-        parts.append(f"[{i}] {d.article.headline} ({d.article.date}, {d.article.source}).")
-    return " ".join(parts)
+    return "Recent news was found for this stock, but it does not clearly explain the move."
 
 
 def _corpus_note(kind: str) -> str:

@@ -63,7 +63,16 @@ ALIASES = {
 _COMPANY_LOOKUP_STOPWORDS = {
     "a", "about", "and", "are", "company", "doing", "for", "how", "is",
     "market", "me", "of", "on", "price", "should", "stock", "tell", "the",
-    "that", "this", "it", "what", "will", "with",
+    "that", "this", "it", "its", "their", "what", "will", "with",
+    "news", "latest", "recent", "more", "again", "why", "does", "did",
+    "can", "give", "show", "explain", "move", "moving", "today",
+    "sentiment", "events", "trading", "worth", "recommendation", "buy",
+    "sell", "hold",
+}
+_COMMON_WORD_TICKERS = {
+    "AN", "AM", "AS", "AT", "BE", "BY", "DO", "GO", "IF", "IN", "IS",
+    "IT", "ME", "MY", "NO", "OF", "ON", "OR", "SO", "TO", "UP", "US",
+    "WE", "WHY", "YES", "YOU",
 }
 
 
@@ -125,6 +134,8 @@ def _dynamic_company_match(message: str) -> str | None:
             ):
                 continue
             phrase = " ".join(meaningful)
+            if phrase.upper() in _COMMON_WORD_TICKERS:
+                continue
             if phrase not in candidates:
                 candidates.append(phrase)
     for candidate in candidates:
@@ -140,9 +151,256 @@ def _has_unresolved_company_reference(message: str) -> bool:
     return any(len(word) >= 2 for word in meaningful)
 
 
+def _is_purchase_question(message: str) -> bool:
+    lower = message.lower()
+    purchase_words = ("buy", "purchase", "invest", "add to my position", "buy more")
+    decision_words = ("should", "would", "can", "is it", "worth", "good idea")
+    return any(word in lower for word in purchase_words) and (
+        "more" in lower or any(word in lower for word in decision_words)
+    )
+
+
+def _is_portfolio_recommendation(message: str) -> bool:
+    lower = message.lower()
+    broad_terms = (
+        "what companies",
+        "which companies",
+        "what stocks",
+        "which stocks",
+        "companies should",
+        "stocks should",
+        "invest into",
+        "invest in",
+        "recommend",
+        "portfolio",
+        "diversify",
+        "new stocks",
+        "new companies",
+        "suggest me",
+        "recommend me",
+        "what should i buy",
+        "what should i invest",
+        "where should i invest",
+        "stocks to buy",
+        "stock to buy",
+    )
+    return any(term in lower for term in broad_terms)
+
+
+def _is_greeting(message: str) -> bool:
+    return message.lower().strip().rstrip("!?.,") in {
+        "hi",
+        "hello",
+        "hey",
+        "good morning",
+        "good afternoon",
+        "good evening",
+    }
+
+
+def _is_holdings_comparison(message: str) -> bool:
+    lower = message.lower()
+    holdings_terms = (
+        "my portfolio",
+        "my holdings",
+        "stocks i own",
+        "stocks that i own",
+        "currently own",
+        "currently track",
+        "existing holdings",
+        "what should i do with",
+    )
+    return any(term in lower for term in holdings_terms)
+
+
+def _is_memory_question(message: str) -> bool:
+    lower = message.lower().strip()
+    return any(
+        phrase in lower
+        for phrase in (
+            "what was my previous question",
+            "my previous question",
+            "previous question",
+            "what did i ask",
+            "what did i say",
+            "what were we discussing",
+            "remind me what i asked",
+        )
+    )
+
+
+def _is_horizon_followup(message: str) -> bool:
+    lower = message.lower().strip()
+    return (
+        len(lower.split()) <= 8
+        and any(term in lower for term in ("short term", "short-term", "long term", "long-term"))
+    )
+
+
+def _requested_horizon(message: str) -> str:
+    lower = message.lower()
+    return "long_term" if "long term" in lower or "long-term" in lower else "short_term"
+
+
+def _is_quote_question(message: str) -> bool:
+    lower = message.lower()
+    return any(
+        phrase in lower
+        for phrase in (
+            "trading at",
+            "current price",
+            "share price",
+            "stock price",
+            "what is the price",
+            "quote",
+        )
+    )
+
+
+_RECOMMENDATION_UNIVERSE = (
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "GOOGL",
+    "AMZN",
+    "JPM",
+    "TCS.NS",
+    "INFY.NS",
+    "RELIANCE.NS",
+)
+
+
+def _dynamic_recommendation_universe(excluded: set[str]) -> list[str]:
+    candidates: list[str] = []
+    try:
+        for screen_name in ("day_gainers", "growth_technology_stocks", "most_actives"):
+            quotes = yf.screen(screen_name, count=30).get("quotes", [])
+            for quote in quotes:
+                symbol = str(quote.get("symbol", "")).upper()
+                if (
+                    symbol
+                    and "." not in symbol
+                    and quote.get("quoteType") == "EQUITY"
+                    and symbol not in excluded
+                    and symbol not in candidates
+                ):
+                    candidates.append(symbol)
+                if len(candidates) >= 12:
+                    return candidates
+    except Exception:
+        logger.warning("Dynamic chatbot recommendation universe was unavailable", exc_info=True)
+    return [
+        symbol for symbol in _RECOMMENDATION_UNIVERSE
+        if symbol not in excluded
+    ]
+
+
+def _recommendation_sentence(
+    ticker: str,
+    decision: str,
+    trend: str,
+    owned: bool,
+    question: str,
+) -> str:
+    lower = question.lower()
+    if owned and ("buy" in lower or "purchase" in lower or "add" in lower):
+        if decision == "consider":
+            action = f"Since you already own {ticker}, I would suggest adding to your position"
+        elif decision == "avoid":
+            action = f"Since you already own {ticker}, I would suggest holding it for now instead of buying more"
+        else:
+            action = f"Since you already own {ticker}, I would suggest holding it for now"
+    elif "sell" in lower:
+        action = (
+            "I would suggest selling this stock"
+            if decision == "avoid" and owned
+            else "I would suggest holding this stock for now"
+        )
+    elif owned:
+        action = "I would suggest holding this stock for now"
+    elif "hold" in lower or "keep" in lower:
+        action = "I would suggest holding this stock for now"
+    elif decision == "consider":
+        action = f"I would suggest buying {ticker}"
+    elif decision == "avoid":
+        action = f"I would wait before buying {ticker}"
+    else:
+        action = f"I would wait before making a decision on {ticker}"
+    ownership = "" if owned else f" {ticker} is not currently in your holdings."
+    return f"{action}. {trend.capitalize()}.{ownership}"
+
+
+def _forecast_signals(
+    closes: list[float],
+    horizon: str = "short_term",
+) -> tuple[str, str, float]:
+    if len(closes) < 10:
+        return "flat", "low", 0.0
+
+    def change(window: int) -> float:
+        values = closes[-window:] if len(closes) >= window else closes
+        return (values[-1] - values[0]) / values[0] * 100
+
+    if horizon == "long_term":
+        one_year = change(12)
+        three_year = change(36)
+        five_year = change(60)
+        score = one_year * 0.20 + three_year * 0.30 + five_year * 0.50
+    else:
+        one_month = change(22)
+        three_month = change(63)
+        recent = change(10)
+        score = one_month * 0.45 + three_month * 0.35 + recent * 0.20
+    returns = [
+        (closes[index] - closes[index - 1]) / closes[index - 1] * 100
+        for index in range(1, len(closes))
+        if closes[index - 1]
+    ]
+    average = sum(returns) / len(returns) if returns else 0.0
+    volatility = (
+        sum((value - average) ** 2 for value in returns) / len(returns)
+    ) ** 0.5 if returns else 0.0
+    if volatility > 4:
+        score *= 0.75
+    direction = "up" if score > 1 else "down" if score < -1 else "flat"
+    confidence = "moderate" if abs(score) >= 3 and volatility < 5 else "low"
+    return direction, confidence, score
+
+
+def _signal_agreement(
+    direction: str,
+    headlines: list[str],
+) -> str:
+    positive = ("growth", "record", "profit", "upgrade", "demand", "strong", "surge")
+    negative = ("loss", "downgrade", "lawsuit", "weak", "cut", "decline", "risk")
+    text = " ".join(headlines).lower()
+    positive_count = sum(text.count(word) for word in positive)
+    negative_count = sum(text.count(word) for word in negative)
+    if not text or positive_count == negative_count:
+        return "there is no clear news signal"
+    news_direction = "up" if positive_count > negative_count else "down"
+    if direction == "flat":
+        return f"news points {news_direction}, while the price forecast is flat"
+    if news_direction == direction:
+        return f"recent news supports the {direction} forecast"
+    return f"recent news points {news_direction}, which conflicts with the price forecast"
+
+
+def _clean_chat_answer(answer: str) -> str:
+    """Keep chatbot output as plain, readable text instead of markdown."""
+    cleaned = answer.replace("**", "").replace("__", "").replace("`", "")
+    cleaned = re.sub(r"^#{1,6}\s*", "", cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r"^[ \t]*[-*][ \t]+", "", cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
 class ChatState(TypedDict, total=False):
     message: str
     history: list[dict]
+    owned_symbols: list[str]
+    horizon: str
     tickers: list[str]
     market: list[dict]
     news: list[dict]
@@ -158,6 +416,8 @@ def resolve_tickers(message: str, known_symbols: list[str]) -> list[str]:
     found: list[str] = []
     upper = re.findall(r"\b[A-Z][A-Z0-9.-]{1,9}\b", message)
     for symbol in upper:
+        if symbol.upper() in _COMMON_WORD_TICKERS:
+            continue
         if symbol.upper() not in found:
             found.append(symbol.upper())
     lower = message.lower()
@@ -216,10 +476,11 @@ def _agent(name: str, status: str, summary: str) -> dict:
 
 def market_node(state: ChatState) -> ChatState:
     results = []
+    history_range = "5Y" if state.get("horizon") == "long_term" else "3M"
     for ticker in state.get("tickers", []):
         try:
             quote = market_data.fetch_quote(ticker)
-            history = market_data.fetch_history(ticker, "1M")
+            history = market_data.fetch_history(ticker, history_range)
             results.append({"ticker": ticker, "quote": quote, "history": history})
         except Exception as exc:
             results.append({"ticker": ticker, "error": str(exc)})
@@ -299,6 +560,9 @@ def explanation_node(state: ChatState) -> ChatState:
 
     market_lines = []
     market_summary_lines = []
+    buy_guidance_lines = []
+    portfolio_lines = []
+    owned_symbols = {symbol.upper() for symbol in state.get("owned_symbols", [])}
     for item in state.get("market", []):
         quote = item.get("quote", {})
         if quote:
@@ -316,20 +580,91 @@ def explanation_node(state: ChatState) -> ChatState:
                 f"{item['ticker']} is trading at {price} {quote.get('currency') or ''}"
                 f"{change} as of {readable_time(quote.get('quoteTime'))}."
             )
+            closes = [
+                float(bar["close"])
+                for bar in item.get("history", [])
+                if isinstance(bar.get("close"), (int, float)) and bar["close"] > 0
+            ]
+            forecast_direction, forecast_confidence, forecast_score = _forecast_signals(
+                closes,
+                state.get("horizon", "short_term"),
+            )
+            ticker_news = [
+                str(article.get("headline", ""))
+                for article in state.get("news", [])
+                if str(article.get("ticker", "")).upper() == item["ticker"].upper()
+            ]
+            agreement = _signal_agreement(forecast_direction, ticker_news)
+            owned = item["ticker"].upper() in owned_symbols
+            decision = (
+                "consider" if forecast_direction == "up"
+                else "avoid" if forecast_direction == "down"
+                else "wait"
+            )
+            horizon_label = (
+                "over the next 1 to 5 years"
+                if state.get("horizon") == "long_term"
+                else "over the next 1 to 3 months"
+            )
+            trend = (
+                f"{horizon_label}, the forecast is {forecast_direction} "
+                f"with {forecast_confidence} confidence, and {agreement}"
+            )
+            if owned and not (
+                forecast_direction == "down" and forecast_confidence == "moderate"
+            ):
+                decision = "wait"
+            buy_guidance_lines.append(
+                _recommendation_sentence(
+                    item["ticker"],
+                    decision,
+                    trend,
+                    owned,
+                    state["message"],
+                )
+            )
+            if _is_portfolio_recommendation(state["message"]) or _is_horizon_followup(state["message"]):
+                if (
+                    decision != "consider"
+                    and not _is_holdings_comparison(state["message"])
+                ):
+                    continue
+                portfolio_lines.append(
+                    _recommendation_sentence(
+                        item["ticker"],
+                        decision,
+                        f"{trend}. Recent news coverage: {len(ticker_news)} article(s)",
+                        owned,
+                        state["message"],
+                    )
+                )
     news_lines = [f"{a['headline']} ({a.get('source')}, {a.get('date')})" for a in state.get("news", [])[:4]]
+    history_lines = []
+    for turn in state.get("history", [])[-6:]:
+        role = turn.get("role")
+        content = turn.get("content")
+        if role in {"user", "assistant"} and isinstance(content, str) and content.strip():
+            history_lines.append(f"{role.title()}: {content[:1200]}")
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are PulseWatch AI. Answer clearly in under 120 words using only the supplied evidence. Do not invent facts. Say when evidence is missing."),
-        ("human", "Question: {question}\nMarket:\n{market}\nNews:\n{news}\nEvidence:\n{evidence}"),
+        ("system", "You are PulseWatch AI. Speak naturally and conversationally, like a helpful market assistant. For portfolio questions, give a detailed comparison of every supplied stock and explain the reason for each recommendation. Use only the supplied evidence. Use the recent conversation to understand short follow-up questions and pronouns. The ownership context tells you whether the user already holds the stock. If the user asks whether to buy, sell, or hold, answer that decision directly and explain which supplied facts support it. Do not invent facts. Say when evidence is missing."),
+        ("human", "Recent conversation:\n{history}\n\nQuestion: {question}\nMarket:\n{market}\nDecision guidance:\n{guidance}\nOwned stocks:\n{owned}\nNews:\n{news}\nEvidence:\n{evidence}"),
     ])
     rendered = prompt.format_messages(
+        history="\n".join(history_lines) or "No earlier turns.",
         question=state["message"],
         market="\n".join(market_lines) or "No market data.",
+        guidance="\n".join(buy_guidance_lines) or "No buy decision requested.",
+        owned=", ".join(sorted(owned_symbols)) or "No owned stocks were found.",
         news="\n".join(news_lines) or "No relevant news found.",
         evidence=state.get("evidence", {}).get("answer", "No additional evidence."),
     )
     evidence = state.get("evidence", {})
     answer = evidence.get("answer", "")
-    if not evidence.get("sources") and market_lines:
+    if _is_quote_question(state["message"]) and market_lines:
+        answer = " ".join(market_summary_lines)
+        if evidence.get("answer"):
+            answer += " " + str(evidence["answer"]).removeprefix("Based on ").strip()
+    elif not evidence.get("sources") and market_lines:
         answer = (
             " ".join(market_summary_lines)
             + " No matching news was available, so I cannot attribute the move "
@@ -341,26 +676,55 @@ def explanation_node(state: ChatState) -> ChatState:
             + "\n\nRecent evidence: "
             + answer.removeprefix("Based on ")
         )
+    if portfolio_lines:
+        ownership_note = (
+            " Since you already own some stocks, I left those out of this list."
+            if owned_symbols
+            else ""
+        )
+        answer = (
+            "Here are the stocks I would consider for you:\n\n"
+            + "\n".join(
+                f"{index}. {line}" for index, line in enumerate(portfolio_lines, start=1)
+            )
+            + "\n\nI ranked these using the forecast across several time periods and the available news."
+            + ownership_note
+        )
+    elif (
+        (_is_portfolio_recommendation(state["message"]) or _is_horizon_followup(state["message"]))
+        and not buy_guidance_lines
+    ):
+        answer = (
+            "I did not find a stock with a strong enough positive forecast for "
+            f"the {_requested_horizon(state['message']).replace('_', ' ')} view. "
+            "I would rather wait than recommend a stock with weakening evidence."
+        )
+    elif (
+        buy_guidance_lines
+        and (
+            _is_purchase_question(state["message"])
+            or _is_holdings_comparison(state["message"])
+        )
+    ):
+        answer = " ".join(buy_guidance_lines)
     api_key = os.environ.get("GROQ_API_KEY")
-    if api_key and (not market_lines or evidence.get("sources")):
+    if api_key and market_lines:
         try:
             response = requests.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={"model": os.environ.get("CHAT_LLM_MODEL", "llama-3.3-70b-versatile"), "temperature": 0.2, "max_tokens": 300, "messages": [{"role": "system", "content": rendered[0].content}, {"role": "user", "content": rendered[1].content}]},
+                json={"model": os.environ.get("CHAT_LLM_MODEL", "llama-3.3-70b-versatile"), "temperature": 0.2, "max_tokens": 500, "messages": [{"role": "system", "content": rendered[0].content + " Answer naturally, as a continuing conversation. For a stock suggestion request, recommend only stocks marked as buyable in Decision guidance, explain each briefly, and mention when none qualify. Do not output a generic market report."}, {"role": "user", "content": rendered[1].content}]},
                 timeout=20,
             )
             response.raise_for_status()
             generated = response.json()["choices"][0]["message"]["content"].strip()
-            if generated and not (
-                market_lines
-                and re.search(r"\b(no|not enough|insufficient|does not contain)\b", generated, re.IGNORECASE)
-            ):
+            if generated:
                 answer = generated
         except (requests.RequestException, KeyError, IndexError, TypeError):
             pass
     if not answer:
         answer = "No usable evidence was found for this question."
+    answer = _clean_chat_answer(answer)
     state["answer"] = answer
     state.setdefault("agents", []).append(_agent("Financial Explanation Agent", "completed", "Produced an evidence-grounded answer."))
     return state
@@ -396,10 +760,118 @@ def build_graph():
 chat_graph = build_graph()
 
 
-def run_graph(message: str, history: list[dict] | None = None, known_symbols: list[str] | None = None) -> dict:
+def run_graph(
+    message: str,
+    history: list[dict] | None = None,
+    known_symbols: list[str] | None = None,
+    owned_symbols: list[str] | None = None,
+) -> dict:
     turns = history or []
-    tickers = resolve_tickers(message, known_symbols or [])
-    unresolved = not tickers and _has_unresolved_company_reference(message)
+    if _is_greeting(message):
+        return {
+            "conversation_id": str(uuid4()),
+            "answer": "Hello. I can help with stock prices, market news, portfolio decisions, and buy or hold suggestions. Which stock or decision would you like to discuss?",
+            "agents": [],
+            "sources": [],
+            "data_freshness": {"generated_at": "", "market": [], "news": None},
+            "verification": {"status": "passed", "issues": []},
+            "generation": {"mode": "conversation", "provider": None, "model": None, "reason": None},
+            "tickers": [],
+        }
+    if _is_memory_question(message):
+        previous_question = next(
+            (
+                str(turn.get("content", "")).strip()
+                for turn in reversed(turns)
+                if turn.get("role") == "user" and str(turn.get("content", "")).strip()
+            ),
+            None,
+        )
+        answer = (
+            f"Your previous question was: “{previous_question}”"
+            if previous_question
+            else "This is the first question in the current conversation."
+        )
+        return {
+            "conversation_id": str(uuid4()),
+            "answer": answer,
+            "agents": [],
+            "sources": [],
+            "data_freshness": {"generated_at": "", "market": [], "news": None},
+            "verification": {"status": "passed", "issues": []},
+            "generation": {"mode": "conversation_memory", "provider": None, "model": None, "reason": None},
+            "tickers": [],
+        }
+
+    previous_tickers = next(
+        (
+            [str(ticker).upper() for ticker in turn.get("tickers", [])[:9]]
+            for turn in reversed(turns)
+            if isinstance(turn.get("tickers"), list) and turn.get("tickers")
+        ),
+        [],
+    )
+    current_tickers = resolve_tickers(message, known_symbols or [])
+    purchase_decision = _is_purchase_question(message) and (
+        bool(current_tickers) or bool(previous_tickers)
+    )
+    horizon_followup = _is_horizon_followup(message) and bool(previous_tickers)
+    portfolio_question = (
+        not purchase_decision
+        and (_is_portfolio_recommendation(message) or horizon_followup)
+    )
+    if portfolio_question:
+        tracked = list(dict.fromkeys(
+            str(symbol).upper()
+            for symbol in (owned_symbols or known_symbols or [])
+        ))
+        wants_new = (
+            not horizon_followup
+            and (
+                "new" in message.lower()
+            or not _is_holdings_comparison(message)
+            )
+        )
+        if horizon_followup:
+            tickers = previous_tickers
+        else:
+            candidates = (
+                _dynamic_recommendation_universe(set(tracked))
+                if wants_new
+                else [symbol for symbol in tracked]
+            )
+            tickers = list(dict.fromkeys(
+                (candidates if wants_new else tracked)
+            ))[:9]
+    elif purchase_decision:
+        # A question such as "should I invest in it?" is a decision about the
+        # subject of the preceding turn, not a request for a new stock list.
+        tickers = current_tickers or previous_tickers
+    else:
+        tickers = current_tickers
+    unresolved = (
+        not tickers
+        and not portfolio_question
+        and _has_unresolved_company_reference(message)
+    )
+    if portfolio_question and not tickers:
+        return {
+            "conversation_id": str(uuid4()),
+            "answer": "I do not have any stocks from your portfolio to compare yet. Add stocks to your holdings and I can compare them for you.",
+            "agents": [],
+            "sources": [],
+            "data_freshness": {"generated_at": "", "market": [], "news": None},
+            "verification": {
+                "status": "passed_with_warnings",
+                "issues": [{
+                    "severity": "warning",
+                    "code": "no_portfolio_stocks",
+                    "message": "No portfolio stocks were supplied for comparison.",
+                }],
+            },
+            "generation": {"mode": "fallback", "provider": None, "model": None, "reason": "no_portfolio_stocks"},
+            "tickers": [],
+        }
     if not tickers and not unresolved:
         for turn in reversed(turns):
             previous_tickers = turn.get("tickers")
@@ -424,7 +896,14 @@ def run_graph(message: str, history: list[dict] | None = None, known_symbols: li
             "generation": {"mode": "fallback", "provider": None, "model": None, "reason": "unrecognized_company"},
             "tickers": [],
         }
-    result = chat_graph.invoke({"message": message, "history": turns, "tickers": tickers, "agents": []})
+    result = chat_graph.invoke({
+        "message": message,
+        "history": turns,
+        "tickers": tickers,
+        "owned_symbols": owned_symbols or [],
+        "horizon": _requested_horizon(message),
+        "agents": [],
+    })
     sources = result.get("evidence", {}).get("sources", [])
     market_freshness = []
     for item in result.get("market", []):

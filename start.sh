@@ -6,6 +6,32 @@ NLP_ENABLED=true
 NEXT_PORT="${NEXT_PORT:-3000}"
 NLP_PORT="${NLP_PORT:-8000}"
 
+validate_port() {
+  local name="$1"
+  local value="$2"
+  if [[ ! "$value" =~ ^[0-9]+$ ]] || (( value < 1 || value > 65535 )); then
+    printf 'Error: %s must be a TCP port between 1 and 65535 (got %s).\n' "$name" "$value" >&2
+    exit 2
+  fi
+}
+
+port_is_in_use() {
+  command -v lsof >/dev/null 2>&1 &&
+    lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+next_available_port() {
+  local port="$1"
+  while port_is_in_use "$port"; do
+    if (( port >= 65535 )); then
+      printf 'Error: no available TCP port found after %s.\n' "$1" >&2
+      exit 1
+    fi
+    port=$((port + 1))
+  done
+  printf '%s' "$port"
+}
+
 usage() {
   printf 'Usage: %s [--no-nlp]\n' "$0"
   printf 'Starts the Next.js app and, by default, the Python NLP service.\n'
@@ -30,6 +56,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 cd "$ROOT_DIR"
+validate_port "NEXT_PORT" "$NEXT_PORT"
+validate_port "NLP_PORT" "$NLP_PORT"
 
 for command_name in node npm curl; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -55,7 +83,7 @@ fi
 
 if [[ "$NLP_ENABLED" == true ]]; then
   PYTHON_CMD=""
-  for candidate in python3 python3.13 python3.12 python3.11; do
+  for candidate in python3.13 python3.12 python3.11 python3; do
     if command -v "$candidate" >/dev/null 2>&1 &&
       "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'; then
       PYTHON_CMD="$candidate"
@@ -78,7 +106,7 @@ if [[ "$NLP_ENABLED" == true ]]; then
 fi
 
 printf 'Generating Prisma client...\n'
-node "$ROOT_DIR/node_modules/prisma/build/index.js" generate
+npm exec -- prisma generate
 
 pids=()
 cleanup() {
@@ -97,25 +125,10 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 if [[ "$NLP_ENABLED" == true ]]; then
-  NLP_PID=""
-  # Always replace a listener started by an earlier run. Reusing it can leave
-  # the browser connected to stale Python agent code after an update.
-  if command -v lsof >/dev/null 2>&1; then
-    while IFS= read -r pid; do
-      [[ "$pid" =~ ^[0-9]+$ ]] || continue
-      printf 'Stopping existing NLP service (pid %s) on port %s...\n' "$pid" "$NLP_PORT"
-      kill "$pid" 2>/dev/null || true
-      for _ in {1..20}; do
-        kill -0 "$pid" 2>/dev/null || break
-        sleep 0.1
-      done
-    done < <(lsof -tiTCP:"$NLP_PORT" -sTCP:LISTEN)
-  fi
-  if lsof -nP -iTCP:"$NLP_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
-    printf 'Port %s is occupied; checking the next port for the NLP service.\n' "$NLP_PORT"
-    while lsof -nP -iTCP:"$NLP_PORT" -sTCP:LISTEN >/dev/null 2>&1; do
-      NLP_PORT=$((NLP_PORT + 1))
-    done
+  NLP_PORT_REQUESTED="$NLP_PORT"
+  NLP_PORT="$(next_available_port "$NLP_PORT")"
+  if [[ "$NLP_PORT" != "$NLP_PORT_REQUESTED" ]]; then
+    printf 'NLP port is occupied; using port %s.\n' "$NLP_PORT"
   fi
   printf 'Starting Python NLP service at http://localhost:%s...\n' "$NLP_PORT"
   (
@@ -145,34 +158,22 @@ if [[ "$NLP_ENABLED" == true ]]; then
 fi
 
 printf 'Starting PulseWatch on port %s...\n' "$NEXT_PORT"
-# Development chunks are content-addressed. Remove a previous dev build so
-# an interrupted/restarted server cannot leave the browser with stale assets.
-if command -v lsof >/dev/null 2>&1; then
-  while IFS= read -r pid; do
-    [[ "$pid" =~ ^[0-9]+$ ]] || continue
-    printf 'Stopping existing Next.js process (pid %s) on port %s...\n' "$pid" "$NEXT_PORT"
-    kill "$pid" 2>/dev/null || true
-    for _ in {1..20}; do
-      kill -0 "$pid" 2>/dev/null || break
-      sleep 0.1
-    done
-  done < <(lsof -tiTCP:"$NEXT_PORT" -sTCP:LISTEN)
-fi
-rm -rf "$ROOT_DIR/.next"
+NEXT_PORT="$(next_available_port "$NEXT_PORT")"
 NLP_SERVICE_URL="http://127.0.0.1:${NLP_PORT}" npm run dev -- --hostname 127.0.0.1 --port "$NEXT_PORT" &
 NEXT_PID=$!
 pids+=("$NEXT_PID")
 
 NEXT_READY=false
 for _ in {1..60}; do
-  # Warm the protected app page, not only "/" (which redirects to /login
-  # without a session). This compiles the page chunk before a real browser
-  # request can reference it.
-  if curl --silent --fail \
+  # Warm the protected dashboard and public login route. The dashboard warm-up
+  # compiles app/page.js before a browser can receive a document referencing it.
+  if curl --silent --show-error --fail --max-time 5 \
     -H 'Cookie: pw_session=startup-warmup' \
     "http://127.0.0.1:${NEXT_PORT}/" >/dev/null &&
-    curl --silent --fail \
-    "http://127.0.0.1:${NEXT_PORT}/_next/static/chunks/app/page.js" >/dev/null; then
+    curl --silent --show-error --fail --max-time 5 \
+    "http://127.0.0.1:${NEXT_PORT}/login" >/dev/null &&
+    curl --silent --show-error --fail --max-time 5 \
+    "http://127.0.0.1:${NEXT_PORT}/chat" >/dev/null; then
     NEXT_READY=true
     break
   fi

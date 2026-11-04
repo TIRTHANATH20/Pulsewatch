@@ -1,13 +1,10 @@
+from __future__ import annotations
+
 from pydantic import BaseModel, Field
 
 
 class TextIn(BaseModel):
     text: str = Field(min_length=1, max_length=20000)
-
-
-class TickerNewsIn(BaseModel):
-    ticker: str
-    top_k: int = 5
 
 
 class RagQueryIn(BaseModel):
@@ -17,8 +14,3 @@ class RagQueryIn(BaseModel):
     # False = retrieval only: skip the (slow, billable) LLM generation step.
     # The PulseWatch AI chatbot writes its own answer and only needs evidence.
     generate: bool = True
-
-
-class AttentionSignalsIn(BaseModel):
-    ticker: str
-    percentChange: float

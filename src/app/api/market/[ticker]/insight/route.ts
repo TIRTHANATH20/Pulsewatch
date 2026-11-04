@@ -11,8 +11,9 @@ export async function GET(
   try {
     await getAuthenticatedUserId();
     const purpose = new URL(req.url).searchParams.get("purpose") ?? "holding";
+    const horizon = new URL(req.url).searchParams.get("horizon") ?? "short_term";
     const response = await fetch(
-      `${getEnv().NLP_SERVICE_URL}/market/${encodeURIComponent(params.ticker)}/insight?purpose=${encodeURIComponent(purpose)}`,
+      `${getEnv().NLP_SERVICE_URL}/market/${encodeURIComponent(params.ticker)}/insight?purpose=${encodeURIComponent(purpose)}&horizon=${encodeURIComponent(horizon)}`,
       { cache: "no-store" },
     );
     const body = await response.json();

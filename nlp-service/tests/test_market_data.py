@@ -249,3 +249,18 @@ def test_fetch_news_retries_plain_ticker_when_stock_search_is_empty(monkeypatch)
         call("TCS.NS stock", news_count=5),
         call("TCS.NS", news_count=5),
     ]
+
+
+def test_fetch_news_returns_empty_when_yahoo_is_temporarily_unavailable(monkeypatch):
+    monkeypatch.setattr(
+        market_data.yf,
+        "Ticker",
+        Mock(side_effect=RuntimeError("Yahoo Finance is currently down")),
+    )
+    monkeypatch.setattr(
+        market_data.yf,
+        "Search",
+        Mock(side_effect=RuntimeError("Yahoo Finance is currently down")),
+    )
+
+    assert market_data.fetch_news("NOK", count=6) == []

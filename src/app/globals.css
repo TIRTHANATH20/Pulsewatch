@@ -415,6 +415,55 @@ h3 {
   margin: 0;
 }
 
+.horizon-picker {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.horizon-options {
+  display: inline-flex;
+  gap: 0.45rem;
+}
+
+.horizon-option {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 9.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  box-shadow: none;
+}
+
+.horizon-option strong {
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.horizon-option small {
+  font-size: 0.72rem;
+}
+
+.horizon-option.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}
+
+.horizon-option:hover,
+.horizon-option:focus-visible {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 .overview-add .section-heading {
   color: var(--color-text);
 }
@@ -519,6 +568,128 @@ h3 {
   color: var(--color-text);
   opacity: 0.72;
   font-size: 0.75rem;
+}
+
+.suggested-stocks {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.suggested-stocks-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.suggested-stocks-heading h3 {
+  margin: 0.2rem 0 0.35rem;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+.suggested-stocks-heading .section-sub {
+  max-width: 38rem;
+}
+
+.suggested-page-count {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.suggested-stock-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.suggested-stock-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  min-height: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.suggested-stock-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.suggested-stock-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.suggested-stock-title strong,
+.suggested-stock-title small {
+  display: block;
+}
+
+.suggested-stock-title small {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.suggested-stock-card p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.suggested-stock-decision {
+  color: var(--color-positive);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.suggested-stock-decision.is-wait,
+.suggested-stock-decision.is-avoid {
+  color: var(--color-warning);
+}
+
+.suggested-stock-card > .btn {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.suggested-loading {
+  opacity: 0.7;
+}
+
+.suggested-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.suggested-pagination .is-page-active {
+  min-width: 2.2rem;
+}
+
+@media (max-width: 640px) {
+  .suggested-stock-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .suggested-stock-card > .btn {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 
 .overview-holdings {

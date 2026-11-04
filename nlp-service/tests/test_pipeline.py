@@ -13,6 +13,28 @@ from app.pipeline import (
     corpus, rag,
 )
 
+
+def test_forecast_uses_multiple_windows_and_reports_low_confidence_for_noisy_data():
+    rising = [100 + index * 0.8 for index in range(70)]
+    forecast = main._forecast_from_history(rising, 1.0, [])
+
+    assert forecast["direction"] == "up"
+    assert forecast["horizon"] == "next 1-3 months"
+    assert forecast["confidence"] == "moderate"
+    assert forecast["return_percent"] > 1
+
+    noisy = main._forecast_from_history(rising, 6.0, [])
+    assert noisy["confidence"] == "low"
+
+
+def test_long_term_forecast_uses_multi_year_horizon():
+    rising = [100 + index * 2 for index in range(60)]
+    forecast = main._forecast_from_history(rising, 1.0, [], "long_term")
+
+    assert forecast["horizon"] == "next 1-5 years"
+    assert forecast["direction"] == "up"
+
+
 @pytest.fixture(autouse=True)
 def configured_sample_corpus(monkeypatch):
     sample_path = Path(__file__).resolve().parents[1] / "data" / "sample_news.csv"
@@ -394,6 +416,24 @@ def test_rag_index_handles_empty_corpus_without_crashing():
     index = rag.NewsVectorIndex([])
     assert index.search("any query") == []
     assert index.dim == 0
+
+
+def test_rag_fallback_keeps_article_details_out_of_visible_answer():
+    articles = [
+        corpus.Article(
+            "1",
+            "TCS announces earnings",
+            "TCS reported stronger earnings.",
+            "2026-01-01",
+            "Test",
+            "TCS",
+        )
+    ]
+    answer = rag._templated_extractive_answer(
+        [rag.RetrievedDoc(article=articles[0], similarity=0.9)]
+    )
+    assert "TCS announces earnings" not in answer
+    assert "Recent news was found" in answer
 
 
 def test_rag_answer_query_handles_empty_corpus_without_crashing():

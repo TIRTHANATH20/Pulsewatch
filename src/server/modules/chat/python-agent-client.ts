@@ -30,6 +30,7 @@ export async function runPythonChat(
         message: request.message,
         history: request.history,
         known_symbols: knownSymbols,
+        owned_symbols: knownSymbols,
       }),
     });
     if (!response.ok) throw new Error(`NLP service returned ${response.status}`);

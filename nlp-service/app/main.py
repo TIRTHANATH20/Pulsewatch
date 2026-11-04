@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-import json
 import logging
+import json
 import os
+import re
+import warnings
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +33,7 @@ class ChatGraphIn(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     history: list[dict] = Field(default_factory=list, max_length=20)
     known_symbols: list[str] = Field(default_factory=list, max_length=200)
+    owned_symbols: list[str] = Field(default_factory=list, max_length=200)
 
 
 class MarketSearchResult(BaseModel):
@@ -47,6 +51,70 @@ class MarketInsight(BaseModel):
     basis: str
     source: str
     rag_context: list[str]
+    forecast_horizon: str
+    forecast_direction: str
+    forecast_confidence: str
+    forecast_return_percent: float
+    investor_horizon: str
+    short_term_guidance: str | None = None
+    long_term_guidance: str | None = None
+    short_term_return_percent: float | None = None
+    long_term_return_percent: float | None = None
+
+
+def _forecast_from_history(
+    closes: list[float],
+    volatility: float,
+    news: list[dict[str, str]],
+    horizon: str = "short_term",
+) -> dict[str, object]:
+    """Build a bounded three-month directional forecast from observable signals."""
+    if len(closes) < 10:
+        return {
+            "direction": "flat",
+            "confidence": "low",
+            "return_percent": 0.0,
+            "horizon": "next 1-3 months" if horizon == "short_term" else "next 1-5 years",
+            "score": 0.0,
+        }
+
+    def change(window: int) -> float:
+        values = closes[-window:] if len(closes) >= window else closes
+        return (values[-1] - values[0]) / values[0] * 100 if len(values) >= 2 and values[0] else 0.0
+
+    if horizon == "long_term":
+        one_year = change(12)
+        three_year = change(36)
+        five_year = change(60)
+        score = (five_year * 0.50) + (three_year * 0.30) + (one_year * 0.20)
+    else:
+        one_month = change(22)
+        three_month = change(63)
+        recent = change(10)
+        score = (one_month * 0.45) + (three_month * 0.35) + (recent * 0.20)
+    volatility_limit = 5 if horizon == "short_term" else 8
+    if volatility > volatility_limit:
+        score *= 0.75
+
+    positive_words = ("growth", "record", "profit", "upgrade", "demand", " AI ", "strong")
+    negative_words = ("loss", "downgrade", "lawsuit", "weak", "cut", "decline", "risk")
+    news_text = " ".join(
+        str(item.get("headline", "")).lower() for item in news
+    )
+    news_score = sum(news_text.count(word) for word in positive_words) - sum(
+        news_text.count(word) for word in negative_words
+    )
+    score += max(-2.0, min(2.0, float(news_score))) * 0.5
+
+    direction = "up" if score > 1 else "down" if score < -1 else "flat"
+    confidence = "moderate" if abs(score) >= 3 and volatility < volatility_limit else "low"
+    return {
+        "direction": direction,
+        "confidence": confidence,
+        "return_percent": round(score, 2),
+        "horizon": "next 1-3 months" if horizon == "short_term" else "next 1-5 years",
+        "score": score,
+    }
 
 app = FastAPI(
     title="PulseWatch NLP Service",
@@ -94,7 +162,12 @@ def health():
 @app.post("/chat/graph")
 def chat_graph(payload: ChatGraphIn):
     """Runs the production chat workflow through the LangGraph agent graph."""
-    return run_graph(payload.message, payload.history, payload.known_symbols)
+    return run_graph(
+        payload.message,
+        payload.history,
+        payload.known_symbols,
+        payload.owned_symbols,
+    )
 
 
 def _ticker_articles(ticker: str):
@@ -165,13 +238,89 @@ def market_search(q: str):
         ) from err
 
 
-@app.get("/market/{ticker}/insight", response_model=MarketInsight)
-def market_insight(ticker: str, purpose: str = "holding"):
+@app.get("/market/suggestions", response_model=list[MarketSearchResult])
+def market_suggestions(exclude: str = "", horizon: str = "short_term"):
+    if horizon not in {"short_term", "long_term"}:
+        raise HTTPException(status_code=400, detail="Invalid investor horizon.")
+    excluded = {symbol.strip().upper() for symbol in exclude.split(",") if symbol.strip()}
     try:
-        quote = market_data.fetch_quote(ticker)
-        bars = market_data.fetch_history(ticker, "1M")
+        import yfinance as yf
+
+        symbols: dict[str, MarketSearchResult] = {}
+        screeners = (
+            ("most_actives", "day_gainers")
+            if horizon == "short_term"
+            else ("growth_technology_stocks", "undervalued_growth_stocks", "aggressive_small_caps")
+        )
+        for screener_name in screeners:
+            try:
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore",
+                        message=".*inplace keyword in DataFrame.sort_index is deprecated.*",
+                    )
+                    quotes = yf.screen(screener_name, count=50).get("quotes", [])
+            except Exception:
+                logger.warning("Yahoo screener %s was unavailable", screener_name, exc_info=True)
+                continue
+            for quote in quotes:
+                symbol = str(quote.get("symbol", "")).strip().upper()
+                if (
+                    not symbol
+                    or symbol in excluded
+                    or quote.get("quoteType") != "EQUITY"
+                    or "." in symbol
+                ):
+                    continue
+                name = quote.get("longName") or quote.get("shortName") or symbol
+                exchange = quote.get("fullExchangeName") or quote.get("exchange")
+                symbols.setdefault(
+                    symbol,
+                    MarketSearchResult(symbol=symbol, name=str(name), exchange=str(exchange) if exchange else None),
+                )
+                if len(symbols) >= 50:
+                    break
+            if len(symbols) >= 50:
+                break
+        return list(symbols.values())
+    except Exception as err:
+        logger.exception("Dynamic market suggestions failed")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Dynamic market suggestions failed: {type(err).__name__}",
+        ) from err
+
+
+@app.get("/market/{ticker}/insight", response_model=MarketInsight)
+def market_insight(ticker: str, purpose: str = "holding", horizon: str = "short_term"):
+    try:
+        if purpose not in {"buy", "holding"}:
+            raise HTTPException(status_code=400, detail="Invalid insight purpose.")
+        if horizon not in {"short_term", "long_term"}:
+            raise HTTPException(status_code=400, detail="Invalid investor horizon.")
+        history_range = "3M" if horizon == "short_term" else "5Y"
+        alternate_range = "5Y" if horizon == "short_term" else "3M"
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            quote_future = executor.submit(market_data.fetch_quote, ticker)
+            bars_future = executor.submit(market_data.fetch_history, ticker, history_range)
+            news_future = executor.submit(market_data.fetch_news, ticker, 6)
+            alternate_bars_future = (
+                executor.submit(market_data.fetch_history, ticker, alternate_range)
+                if purpose == "buy"
+                else None
+            )
+            quote = quote_future.result()
+            bars = bars_future.result()
+            try:
+                news = news_future.result()
+            except Exception as err:
+                logger.warning(
+                    "News unavailable while building insight for %s: %s",
+                    ticker,
+                    type(err).__name__,
+                )
+                news = []
         closes = [float(bar["close"]) for bar in bars if float(bar["close"]) > 0]
-        news = market_data.fetch_news(ticker, count=6)
         latest_change = (
             (quote["price"] - quote["previousClose"]) / quote["previousClose"] * 100
             if isinstance(quote.get("previousClose"), (int, float)) and quote["previousClose"]
@@ -181,6 +330,8 @@ def market_insight(ticker: str, purpose: str = "holding"):
             change = (closes[-1] - closes[0]) / closes[0] * 100
         else:
             change = 0.0
+        period_label = "three-month" if horizon == "short_term" else "five-year"
+        observation_label = "daily" if horizon == "short_term" else "monthly"
         if change > 1:
             direction, confidence = "up", "moderate"
         elif change < -1:
@@ -193,7 +344,7 @@ def market_insight(ticker: str, purpose: str = "holding"):
             else "avoid"
         ) if purpose == "buy" else "hold"
         grounded_summary = (
-            f"{quote['symbol']} has a {direction} one-month trend ({change:+.2f}%)."
+            f"{quote['symbol']} has a {direction} {period_label} trend ({change:+.2f}%)."
         )
         llm_summary = grounded_summary
         insight_source = "deterministic_fallback"
@@ -206,6 +357,64 @@ def market_insight(ticker: str, purpose: str = "holding"):
         volatility = (
             sum((item - average_return) ** 2 for item in daily_returns) / len(daily_returns)
         ) ** 0.5 if daily_returns else 0
+        forecast = _forecast_from_history(closes, volatility, news, horizon)
+        short_term_guidance = None
+        long_term_guidance = None
+        short_term_return_percent = None
+        long_term_return_percent = None
+        if purpose == "buy":
+            alternate_label = "long-term" if horizon == "short_term" else "short-term"
+            alternate_return: float | None = None
+            try:
+                if alternate_bars_future is None:
+                    raise RuntimeError("Alternate history was not requested.")
+                alternate_bars = alternate_bars_future.result()
+                alternate_closes = [
+                    float(bar["close"]) for bar in alternate_bars if float(bar["close"]) > 0
+                ]
+                alternate_returns = [
+                    (alternate_closes[index] - alternate_closes[index - 1])
+                    / alternate_closes[index - 1]
+                    * 100
+                    for index in range(1, len(alternate_closes))
+                    if alternate_closes[index - 1]
+                ]
+                alternate_average = (
+                    sum(alternate_returns) / len(alternate_returns)
+                    if alternate_returns
+                    else 0
+                )
+                alternate_volatility = (
+                    sum((item - alternate_average) ** 2 for item in alternate_returns)
+                    / len(alternate_returns)
+                ) ** 0.5 if alternate_returns else 0
+                alternate_forecast = _forecast_from_history(
+                    alternate_closes, alternate_volatility, news, alternate_label.replace("-", "_")
+                )
+                alternate_return = float(alternate_forecast["return_percent"])
+                alternate_direction = str(alternate_forecast["direction"])
+                alternate_text = (
+                    f"{alternate_direction} ({alternate_return:+.1f}%)"
+                )
+            except Exception as err:
+                logger.warning(
+                    "Alternate %s guidance unavailable for %s: %s",
+                    alternate_label,
+                    ticker,
+                    type(err).__name__,
+                )
+                alternate_text = "unavailable"
+            current_text = f"{forecast['direction']} ({float(forecast['return_percent']):+.1f}%)"
+            if horizon == "short_term":
+                short_term_guidance = current_text
+                long_term_guidance = alternate_text
+                short_term_return_percent = float(forecast["return_percent"])
+                long_term_return_percent = alternate_return
+            else:
+                long_term_guidance = current_text
+                short_term_guidance = alternate_text
+                long_term_return_percent = float(forecast["return_percent"])
+                short_term_return_percent = alternate_return
         recent_window = closes[-6:] if len(closes) >= 6 else closes
         recent_change = (
             (recent_window[-1] - recent_window[0]) / recent_window[0] * 100
@@ -229,11 +438,11 @@ def market_insight(ticker: str, purpose: str = "holding"):
         )
         weakening = sell_signal
         rag_context = [
-            f"{len(closes)} daily prices checked",
-            f"1-month change: {change:+.2f}%",
-            f"Last 5 sessions: {recent_change:+.2f}%",
-            f"Drop from recent high: {abs(drawdown):.2f}%",
-            f"Down days in a row: {down_streak}",
+            f"{len(closes)} {observation_label} prices checked",
+            f"{period_label.capitalize()} change: {change:+.2f}%",
+            f"Recent six {observation_label} points: {recent_change:+.2f}%",
+            f"Drop from the {period_label} high: {abs(drawdown):.2f}%",
+            f"Consecutive declining points: {down_streak}",
             f"Recent news items: {len(news)}",
         ]
         if weakening:
@@ -242,6 +451,13 @@ def market_insight(ticker: str, purpose: str = "holding"):
             else:
                 recommendation = "sell"
             confidence = "moderate"
+        if purpose == "holding" and (
+            horizon == "short_term"
+            or forecast["direction"] != "down"
+            or forecast["confidence"] != "moderate"
+        ):
+            recommendation = "hold"
+            sell_signal = False
         evidence = {
             "symbol": quote["symbol"],
             "purpose": purpose,
@@ -253,6 +469,9 @@ def market_insight(ticker: str, purpose: str = "holding"):
             "consecutive_down_sessions": down_streak,
             "recent_momentum": "weakening" if weakening else "stable_or_improving",
             "daily_volatility_percent": round(volatility, 2),
+            "forecast": forecast,
+            "short_term_guidance": short_term_guidance,
+            "long_term_guidance": long_term_guidance,
             "observations": len(closes),
             "recent_closes": [round(value, 2) for value in closes[-10:]],
             "news": [
@@ -274,7 +493,7 @@ def market_insight(ticker: str, purpose: str = "holding"):
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are a financial research analyst. Use only the market data and news given. Use very simple English, like you are explaining it to a new investor. Avoid words such as bearish, bullish, drawdown, volatility, momentum, sustained, outlook, and advisable; use plain words such as falling, rising, recent move, price swings, and likely next move. Keep the summary to 1 or 2 short sentences. A single down session or a small daily loss is a normal pullback and is not enough to recommend selling. For an existing holding, recommendation must be exactly hold or sell; recommend sell only when the evidence shows weakness across several sessions or a large fall from the recent high. For a prospective purchase, recommendation must be consider, wait, or avoid. Return valid JSON only with keys: direction (up, down, or flat), confidence (low or moderate), recommendation, and summary. Do not invent facts or numbers.",
+                                "content": f"You are a financial research analyst. Use only the supplied market data, forecast signals, and news. Explain the {('short-term' if horizon == 'short_term' else 'long-term')} outlook in simple English. The computed recommendation in the evidence is authoritative; do not contradict it. For a buy decision, mention both the supplied short-term and long-term guidance in the second sentence. Keep the summary to exactly two short sentences. Do not claim fundamentals that are not supplied. Return valid JSON only with keys: direction, confidence, recommendation, and summary. Do not invent facts or numbers.",
                             },
                             {
                                 "role": "user",
@@ -314,7 +533,13 @@ def market_insight(ticker: str, purpose: str = "holding"):
                             if purpose == "buy" or parsed_recommendation != "sell" or sell_signal
                             else "hold"
                         )
-                        llm_summary = parsed["summary"].strip()
+                        candidate_summary = parsed["summary"].strip()
+                        summary_conflicts = (
+                            (recommendation == "sell" and re.search(r"\bhold|keep|continue holding|stay|staying\b", candidate_summary, re.I))
+                            or (recommendation == "hold" and re.search(r"\bsell|selling\b", candidate_summary, re.I))
+                        )
+                        if not summary_conflicts:
+                            llm_summary = candidate_summary
                         insight_source = "llm_rag"
                     elif (
                         isinstance(parsed.get("summary"), str)
@@ -326,10 +551,23 @@ def market_insight(ticker: str, purpose: str = "holding"):
                 if weakening:
                     if recent_change < 0:
                         direction = "down"
-                    recommendation = "avoid" if purpose == "buy" else "sell"
+                    if purpose == "buy":
+                        recommendation = "avoid"
             except (requests.RequestException, ValueError, KeyError, IndexError, TypeError, json.JSONDecodeError):
                 logger.warning("Groq market insight generation failed for %s", ticker, exc_info=True)
                 llm_summary = grounded_summary
+        if insight_source == "deterministic_fallback" and purpose == "holding":
+            llm_summary = (
+                f"{grounded_summary} The {period_label} forecast points "
+                f"{forecast['direction']} ({float(forecast['return_percent']):+.1f}%), "
+                f"with {forecast['confidence']} confidence. Recent volatility was "
+                f"{volatility:.1f}%, based on {len(news)} recent news items."
+            )
+        elif purpose == "buy" and insight_source == "deterministic_fallback":
+            llm_summary = (
+                f"{grounded_summary} Short-term outlook: {short_term_guidance or 'unavailable'}; "
+                f"long-term outlook: {long_term_guidance or 'unavailable'}."
+            )
         return MarketInsight(
             symbol=quote["symbol"],
             direction=direction,
@@ -338,11 +576,25 @@ def market_insight(ticker: str, purpose: str = "holding"):
             summary=llm_summary,
             basis=f"RAG context: {len(closes)} Yahoo Finance daily closes, volatility, and {len(news)} recent news articles.",
             source=insight_source,
-            rag_context=rag_context,
+            rag_context=rag_context + [
+                f"Investor horizon: {'short term' if horizon == 'short_term' else 'long term'}",
+                f"Forecast direction: {forecast['direction']} ({forecast['confidence']} confidence)",
+                f"Forecast signal estimate: {forecast['return_percent']:+.2f}%",
+            ],
+            forecast_horizon=str(forecast["horizon"]),
+            forecast_direction=str(forecast["direction"]),
+            forecast_confidence=str(forecast["confidence"]),
+            forecast_return_percent=float(forecast["return_percent"]),
+            investor_horizon=horizon,
+            short_term_guidance=short_term_guidance,
+            long_term_guidance=long_term_guidance,
+            short_term_return_percent=short_term_return_percent,
+            long_term_return_percent=long_term_return_percent,
         )
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
     except Exception as err:
+        logger.exception("Market insight failed for %s", ticker)
         raise HTTPException(
             status_code=502,
             detail=f"Market insight unavailable: {type(err).__name__}",

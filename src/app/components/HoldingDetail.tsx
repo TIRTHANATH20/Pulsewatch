@@ -17,18 +17,41 @@ export default function HoldingDetail({
   const { items, loadState, error, reload } = useAttention(watchlistId);
   const [insight, setInsight] = useState<api.MarketInsight | null>(null);
   const [insightError, setInsightError] = useState<string | null>(null);
+  const [investorHorizon, setInvestorHorizon] = useState<api.InvestorHorizon>("short_term");
+  const [loadingHorizon, setLoadingHorizon] = useState(false);
   const item = items.find((candidate) => candidate.itemId === itemId);
+  const symbol = item?.symbol;
 
   useEffect(() => {
-    if (!item) return;
+    if (!symbol) return;
     let active = true;
+    const controller = new AbortController();
     setInsightError(null);
-    void api.fetchMarketInsight(item.symbol).then(
+    setLoadingHorizon(true);
+    void fetch(
+      `/api/market/${encodeURIComponent(symbol)}/insight?purpose=holding&horizon=${investorHorizon}`,
+      { signal: controller.signal, cache: "no-store" },
+    ).then(async (response) => {
+      const body = await response.json();
+      if (!response.ok) {
+        throw new api.ApiError(
+          typeof body?.message === "string"
+            ? body.message
+            : "Insight unavailable",
+          response.status,
+        );
+      }
+      return body as api.MarketInsight;
+    }).then(
       (result) => {
-        if (active) setInsight(result);
+        if (active) {
+          setInsight(result);
+          setLoadingHorizon(false);
+        }
       },
       (reason) => {
-        if (active) {
+        if (active && reason?.name !== "AbortError") {
+          setLoadingHorizon(false);
           setInsightError(
             reason instanceof Error ? reason.message : "Insight unavailable",
           );
@@ -37,8 +60,9 @@ export default function HoldingDetail({
     );
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [item]);
+  }, [symbol, investorHorizon]);
 
   if (!item && loadState === "loading") {
     return <main className="page"><div className="loading-state">Loading holding…</div></main>;
@@ -79,13 +103,39 @@ export default function HoldingDetail({
       <section className="holding-detail-insight liquid-glass" aria-label="Holding analysis">
         <div>
           <p className="eyebrow">AI outlook</p>
+          <div className="horizon-picker" role="group" aria-label="Investment horizon">
+            <span>Investment horizon</span>
+            <div className="horizon-options">
+              {([
+                ["short_term", "Short term", "1–3 months"],
+                ["long_term", "Long term", "1–5 years"],
+              ] as const).map(([value, label, range]) => (
+                <button
+                  className={investorHorizon === value ? "btn btn-ghost horizon-option is-active" : "btn btn-ghost horizon-option"}
+                  key={value}
+                  type="button"
+                  aria-pressed={investorHorizon === value}
+                  onClick={() => setInvestorHorizon(value)}
+                >
+                  <strong>{label}</strong>
+                  <small>{range}</small>
+                </button>
+              ))}
+            </div>
+          </div>
           <h2 className={`section-heading insight-${insight?.recommendation ?? "pending"}`}>
             {insight
-              ? `Suggestion: ${insight.recommendation === "sell" ? "Sell" : "Hold"}`
-              : "Loading analysis…"}
+              ? `Suggestion: ${insight.recommendation === "sell" ? "Sell" : insight.recommendation === "hold" ? "Hold" : insight.recommendation === "consider" ? "Consider buying" : "Wait"}`
+              : loadingHorizon ? "Checking this horizon…" : "Loading analysis…"}
           </h2>
         </div>
         {insight && <p>{insight.summary}</p>}
+        {insight && (
+          <p>
+            Forecast for {insight.forecast_horizon}: <strong>{insight.forecast_direction}</strong>
+            {" "}({insight.forecast_confidence} confidence)
+          </p>
+        )}
         {insight && (
           <details className="holding-rag-context">
             <summary>Why this suggestion?</summary>

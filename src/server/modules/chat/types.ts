@@ -170,6 +170,7 @@ export const chatRequestSchema = z.object({
     )
     .max(20)
     .default([]),
+  owned_symbols: z.array(tickerSchema).max(200).default([]),
   stream: z.boolean().default(false),
 });
 export type ChatRequest = z.infer<typeof chatRequestSchema>;

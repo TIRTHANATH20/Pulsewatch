@@ -72,8 +72,7 @@ function AnswerText({
   text: string;
   response?: ChatResponse;
 }) {
-  // Turns [n] / [M1] markers into links when the source has a URL.
-  const parts = text.split(/(\[M?\d+\])/g);
+  const parts = text.replace(/\[M?\d+\]/g, "").split(/(\[M?\d+\])/g);
   return (
     <p className="pwchat-answer">
       {parts.map((part, i) => {
@@ -195,42 +194,6 @@ function AssistantBody({ msg }: { msg: Message }) {
           ))}
         </ul>
       </details>
-
-      {r.sources.length > 0 && (
-        <details className="pwchat-details">
-          <summary>
-            Sources <span className="pwchat-muted">({r.sources.length})</span>
-          </summary>
-          <ul className="pwchat-sources">
-            {r.sources.map((s) => (
-              <li key={s.ref}>
-                <span className="pwchat-cite">[{s.ref}]</span>{" "}
-                {safeHttpUrl(s.url) ? (
-                  <a
-                    href={safeHttpUrl(s.url) ?? undefined}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                  >
-                    {s.title}
-                  </a>
-                ) : (
-                  s.title
-                )}
-                <div className="pwchat-muted">
-                  {[
-                    s.provider,
-                    s.published_at,
-                    s.article_id ? `id ${s.article_id}` : null,
-                    s.cited ? "cited" : "retrieved, not cited",
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
 
       {r.verification.issues.length > 0 && (
         <details className="pwchat-details">
@@ -448,10 +411,6 @@ export default function PulseWatchChat({
           {busy ? "Working…" : "Send"}
         </button>
       </form>
-      <p className="pwchat-muted pwchat-disclaimer">
-        Informational only — not personalized financial advice. Market data may
-        be simulated or delayed; check the data labels on each answer.
-      </p>
     </section>
   );
 }

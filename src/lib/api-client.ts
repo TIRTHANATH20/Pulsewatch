@@ -109,19 +109,69 @@ export interface MarketInsight {
   basis: string;
   source: "llm_rag" | "deterministic_fallback";
   rag_context: string[];
+  forecast_horizon: string;
+  forecast_direction: "up" | "down" | "flat";
+  forecast_confidence: "low" | "moderate";
+  forecast_return_percent: number;
+  investor_horizon: "short_term" | "long_term";
+  short_term_guidance?: string | null;
+  long_term_guidance?: string | null;
+  short_term_return_percent?: number | null;
+  long_term_return_percent?: number | null;
 }
+
+export type InvestorHorizon = "short_term" | "long_term";
+
+const MARKET_INSIGHT_CACHE_TTL_MS = 5 * 60 * 1000;
+const marketInsightCache = new Map<
+  string,
+  { value: MarketInsight; cachedAt: number }
+>();
+const marketInsightRequests = new Map<string, Promise<MarketInsight>>();
 
 export function searchCompanies(query: string): Promise<CompanySearchResult[]> {
   return request(`/api/market/search?q=${encodeURIComponent(query)}`);
 }
 
+export function fetchSuggestedCompanies(
+  excludedSymbols: string[],
+  horizon: InvestorHorizon,
+): Promise<CompanySearchResult[]> {
+  return request(
+    `/api/market/suggestions?exclude=${encodeURIComponent(excludedSymbols.join(","))}&horizon=${horizon}`,
+  );
+}
+
 export function fetchMarketInsight(
   symbol: string,
   purpose: "buy" | "holding" = "holding",
+  horizon: InvestorHorizon = "short_term",
 ): Promise<MarketInsight> {
-  return request(
-    `/api/market/${encodeURIComponent(symbol)}/insight?purpose=${purpose}`,
-  );
+  const key = `${symbol.toUpperCase()}|${purpose}|${horizon}`;
+  const cached = marketInsightCache.get(key);
+  if (cached && Date.now() - cached.cachedAt < MARKET_INSIGHT_CACHE_TTL_MS) {
+    return Promise.resolve(cached.value);
+  }
+
+  const pending = marketInsightRequests.get(key);
+  if (pending) return pending;
+
+  const requestPromise = request<MarketInsight>(
+    `/api/market/${encodeURIComponent(symbol)}/insight?purpose=${purpose}&horizon=${horizon}`,
+  )
+    .then((value) => {
+      marketInsightCache.set(key, { value, cachedAt: Date.now() });
+      return value;
+    })
+    .finally(() => {
+      marketInsightRequests.delete(key);
+    });
+  marketInsightRequests.set(key, requestPromise);
+  return requestPromise;
+}
+
+export function clearMarketInsightCache(): void {
+  marketInsightCache.clear();
 }
 
 // --- Authentication ----------------------------------------------------

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import type { WatchlistSummary } from "@/types/watchlist";
@@ -10,6 +10,8 @@ import { formatPercent } from "@/lib/format";
 import MarketView from "@/app/components/MarketView";
 
 type LoadState = "loading" | "ready" | "error";
+
+const SUGGESTIONS_PER_PAGE = 10;
 
 export default function WatchlistsDashboard() {
   const [watchlists, setWatchlists] = useState<WatchlistSummary[]>([]);
@@ -27,6 +29,11 @@ export default function WatchlistsDashboard() {
   const [buyInsights, setBuyInsights] = useState<Record<string, api.MarketInsight>>({});
   const [buyingInsight, setBuyingInsight] = useState<string | null>(null);
   const [removingHolding, setRemovingHolding] = useState<string | null>(null);
+  const [investorHorizon, setInvestorHorizon] = useState<api.InvestorHorizon>("short_term");
+  const [suggestedInsights, setSuggestedInsights] = useState<Record<string, api.MarketInsight>>({});
+  const [suggestedCompanies, setSuggestedCompanies] = useState<api.CompanySearchResult[]>([]);
+  const [suggestionsPage, setSuggestionsPage] = useState(1);
+  const [suggestionsRefreshKey, setSuggestionsRefreshKey] = useState(0);
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -46,6 +53,15 @@ export default function WatchlistsDashboard() {
     error: attentionError,
     reload: reloadAttention,
   } = useAttention();
+
+  const holdingSymbols = useMemo(
+    () => [...new Set(attentionItems.map((item) => item.symbol))],
+    [attentionItems],
+  );
+  const ownedSymbols = useMemo(
+    () => new Set(holdingSymbols.map((symbol) => symbol.toUpperCase())),
+    [holdingSymbols],
+  );
 
   const load = useCallback(async () => {
     setLoadState("loading");
@@ -67,13 +83,12 @@ export default function WatchlistsDashboard() {
   }, [load]);
 
   useEffect(() => {
-    const symbols = [...new Set(attentionItems.map((item) => item.symbol))];
-    if (!symbols.length) return;
+    if (!holdingSymbols.length) return;
     let active = true;
     void Promise.all(
-      symbols.map(async (symbol) => {
+      holdingSymbols.map(async (symbol) => {
         try {
-          return await api.fetchMarketInsight(symbol);
+          return await api.fetchMarketInsight(symbol, "holding", investorHorizon);
         } catch {
           return null;
         }
@@ -91,7 +106,117 @@ export default function WatchlistsDashboard() {
     return () => {
       active = false;
     };
-  }, [attentionItems]);
+  }, [
+    holdingSymbols,
+    investorHorizon,
+  ]);
+
+  const availableSuggestions = useMemo(
+    () =>
+      suggestedCompanies.filter(
+        (stock) => !ownedSymbols.has(stock.symbol.toUpperCase()),
+      ),
+    [suggestedCompanies, ownedSymbols],
+  );
+  const eligibleSuggestions = useMemo(
+    () =>
+      availableSuggestions.filter((stock) => {
+        const insight = suggestedInsights[stock.symbol];
+        if (
+          insight?.short_term_return_percent !== null &&
+          insight?.short_term_return_percent !== undefined &&
+          insight?.long_term_return_percent !== null &&
+          insight?.long_term_return_percent !== undefined
+        ) {
+          return !(
+            insight.short_term_return_percent < 0 &&
+            insight.long_term_return_percent < 0
+          );
+        }
+        return true;
+      }),
+    [availableSuggestions, suggestedInsights],
+  );
+  const suggestionPageCount = Math.max(
+    1,
+    Math.ceil(eligibleSuggestions.length / SUGGESTIONS_PER_PAGE),
+  );
+  const visibleSuggestions = useMemo(
+    () =>
+      eligibleSuggestions.slice(
+        (suggestionsPage - 1) * SUGGESTIONS_PER_PAGE,
+        suggestionsPage * SUGGESTIONS_PER_PAGE,
+      ),
+    [eligibleSuggestions, suggestionsPage],
+  );
+  const visibleSuggestionSymbols = useMemo(
+    () => visibleSuggestions.map((stock) => stock.symbol),
+    [visibleSuggestions],
+  );
+
+  useEffect(() => {
+    if (suggestionsPage > suggestionPageCount) {
+      setSuggestionsPage(suggestionPageCount);
+    }
+  }, [suggestionsPage, suggestionPageCount]);
+
+  useEffect(() => {
+    setSuggestionsPage(1);
+    setSuggestedInsights({});
+    let active = true;
+    void api.fetchSuggestedCompanies(holdingSymbols, investorHorizon).then((companies) => {
+      if (!active) return;
+      setSuggestedCompanies(companies);
+    }).then(() => {
+      if (!active) return;
+    }).catch((err) => {
+      if (active) setCreateError(err instanceof Error ? err.message : "Dynamic suggestions are unavailable");
+    });
+    return () => {
+      active = false;
+    };
+  }, [
+    holdingSymbols,
+    investorHorizon,
+    suggestionsRefreshKey,
+  ]);
+
+  useEffect(() => {
+    if (!visibleSuggestionSymbols.length) return;
+    let active = true;
+    void Promise.all(
+      visibleSuggestionSymbols.map(async (symbol) => {
+        try {
+          return await api.fetchMarketInsight(symbol, "buy", investorHorizon);
+        } catch {
+          return null;
+        }
+      }),
+    ).then((results) => {
+      if (!active) return;
+      setSuggestedInsights((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          results.filter((item): item is api.MarketInsight => item !== null)
+            .map((item) => [item.symbol, item]),
+        ),
+      }));
+    });
+    return () => {
+      active = false;
+    };
+  }, [
+    investorHorizon,
+    visibleSuggestionSymbols,
+  ]);
+
+  useEffect(() => {
+    const refreshTimer = window.setInterval(
+      () => setSuggestionsRefreshKey((current) => current + 1),
+      5 * 60 * 1000,
+    );
+    return () => window.clearInterval(refreshTimer);
+  }, []);
 
   async function searchCompanies() {
     const query = companyQuery.trim();
@@ -296,7 +421,11 @@ export default function WatchlistsDashboard() {
                 </span>
                 {buyInsight && (
                   <span className={`company-buy-insight is-${buyInsight.recommendation}`}>
-                    Buy view: <strong>{buyInsight.recommendation}</strong>. {buyInsight.summary}
+                    {buyInsight.investor_horizon === "long_term"
+                      ? "Long-term"
+                      : "Short-term"}{" "}
+                    buy view: <strong>{buyInsight.recommendation}</strong>.{" "}
+                    {buyInsight.summary}
                   </span>
                 )}
                 </div>
@@ -304,6 +433,53 @@ export default function WatchlistsDashboard() {
             })}
           </div>
         )}
+        <section className="suggested-stocks" aria-label="Suggested stocks">
+          <div className="suggested-stocks-heading">
+            <div>
+              <p className="eyebrow">Ideas for you</p>
+              <h3>Stocks you could consider</h3>
+              <p className="section-sub">
+                Based on current market data. Stocks already in your holdings are left out.
+              </p>
+            </div>
+            <span className="suggested-page-count">
+              Page {suggestionsPage} of {suggestionPageCount}
+            </span>
+          </div>
+          <div className="suggested-stock-grid">
+            {visibleSuggestions.map((stock) => {
+              const insight = suggestedInsights[stock.symbol];
+              const reason = insight?.summary ?? null;
+              return (
+                <article className="suggested-stock-card" key={stock.symbol}>
+                  <div className="suggested-stock-copy">
+                    <div className="suggested-stock-title">
+                      <strong>{stock.name}</strong>
+                      <small>{stock.symbol}</small>
+                    </div>
+                    {reason ? <p>{reason}</p> : <p className="suggested-loading">Checking the latest forecast…</p>}
+                  </div>
+                  <button className="btn btn-primary" onClick={() => void addCompany(stock.symbol)} disabled={addingSymbol !== null}>
+                    {addingSymbol === stock.symbol ? "Adding…" : "Add to holdings"}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+          <nav className="suggested-pagination" aria-label="Suggested stocks pages">
+            <button className="btn btn-ghost" onClick={() => setSuggestionsPage((page) => Math.max(1, page - 1))} disabled={suggestionsPage === 1}>
+              Previous
+            </button>
+            {Array.from({ length: suggestionPageCount }, (_, index) => index + 1).map((page) => (
+              <button className={page === suggestionsPage ? "btn btn-primary is-page-active" : "btn btn-ghost"} key={page} onClick={() => setSuggestionsPage(page)} aria-label={`Go to suggestions page ${page}`}>
+                {page}
+              </button>
+            ))}
+            <button className="btn btn-ghost" onClick={() => setSuggestionsPage((page) => Math.min(suggestionPageCount, page + 1))} disabled={suggestionsPage === suggestionPageCount}>
+              Next
+            </button>
+          </nav>
+        </section>
       </section>
 
       {attentionItems.length > 0 && (
@@ -332,9 +508,13 @@ export default function WatchlistsDashboard() {
                   {insight && (
                     <div className={`overview-insight is-${insight.recommendation}`}>
                       <strong>
-                        Suggestion: {insight.recommendation === "sell" ? "Sell" : "Hold"}
+                        Suggestion: {insight.recommendation === "sell" ? "Sell" : insight.recommendation === "hold" ? "Hold" : insight.recommendation === "consider" ? "Consider buying" : "Wait"}
                       </strong>
                       <span>{insight.summary}</span>
+                      <small>
+                        Forecast ({insight.forecast_horizon}): {insight.forecast_direction}
+                        {" "}({insight.forecast_confidence} confidence)
+                      </small>
                     </div>
                   )}
                   <button

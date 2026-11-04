@@ -4,12 +4,18 @@ import logging
 import math
 import re
 import hashlib
+import warnings
 from datetime import datetime, timezone
 from typing import Any
 
+import pandas as pd
 import yfinance as yf
 
 logger = logging.getLogger(__name__)
+warnings.filterwarnings(
+    "ignore",
+    message=".*inplace keyword in DataFrame\\.set_index is deprecated.*",
+)
 
 _NSE_SYMBOLS = {
     "RELIANCE",
@@ -30,6 +36,7 @@ _HISTORY_RANGES = {
     "1M": ("1mo", "1d"),
     "3M": ("3mo", "1d"),
     "1Y": ("1y", "1wk"),
+    "5Y": ("5y", "1mo"),
 }
 
 
@@ -105,7 +112,7 @@ def fetch_quote(ticker: str) -> dict[str, Any]:
 def fetch_history(ticker: str, range_name: str) -> list[dict[str, Any]]:
     yahoo_symbol = normalize_yahoo_symbol(ticker)
     if range_name not in _HISTORY_RANGES:
-        raise ValueError("Range must be one of 1D, 1W, 1M, 3M, or 1Y.")
+        raise ValueError("Range must be one of 1D, 1W, 1M, 3M, 1Y, or 5Y.")
     period, interval = _HISTORY_RANGES[range_name]
     history = yf.Ticker(yahoo_symbol).history(
         period=period,
@@ -140,19 +147,34 @@ def fetch_history(ticker: str, range_name: str) -> list[dict[str, Any]]:
 
 
 def fetch_news(ticker: str, count: int = 20) -> list[dict[str, str]]:
-    raw_symbol = ticker.strip().upper()
     yahoo_symbol = normalize_yahoo_symbol(ticker)
-    news = yf.Ticker(yahoo_symbol).get_news(count=count)
+    try:
+        news = yf.Ticker(yahoo_symbol).get_news(count=count)
+    except Exception as err:
+        logger.warning(
+            "Yahoo news unavailable for %s: %s",
+            yahoo_symbol,
+            type(err).__name__,
+        )
+        news = []
     if not news:
         logger.info(
             "Yahoo ticker news was empty for %s; querying Yahoo Finance search news",
             yahoo_symbol,
         )
-        # Yahoo's search endpoint commonly returns results for the
-        # exchange-neutral symbol (TCS), but not for the normalized symbol
-        # (TCS.NS). Try both before reporting that news is unavailable.
-        for query in (raw_symbol, f"{raw_symbol} stock", yahoo_symbol):
-            news = yf.Search(query, news_count=count).news
+        # Search is more reliable with an explicit stock query. For exchange
+        # symbols, retry the normalized form so Yahoo can match the listing.
+        queries = (f"{yahoo_symbol} stock", yahoo_symbol)
+        for query in dict.fromkeys(queries):
+            try:
+                news = yf.Search(query, news_count=count).news
+            except Exception as err:
+                logger.warning(
+                    "Yahoo news search unavailable for %s: %s",
+                    query,
+                    type(err).__name__,
+                )
+                news = []
             if news:
                 break
     articles: list[dict[str, str]] = []

@@ -63,7 +63,7 @@ const envSchema = z.object({
   // unavailable and falling back gracefully (see server/modules/nlp/client.ts).
   // NLP calls can be slower than market-data calls (LDA/embeddings aren't
   // free), hence a higher default than MARKET_DATA_TIMEOUT_MS.
-  NLP_SERVICE_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
+  NLP_SERVICE_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   // If "true", NLP intelligence sections are hidden/disabled app-wide
   // instead of attempting to reach the NLP service at all — useful for
   // running PulseWatch's core market-watchlist functionality with zero
